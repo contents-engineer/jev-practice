@@ -23,11 +23,11 @@ let jev: TypeSafeClient | undefined;
 export function serve(route: Route) {
   return {
     async fetch(request: Request): Promise<Response> {
-      if (request.method !== 'POST') return Response.json({ error: 'Use POST' }, { status: 405 });
+      if (request.method !== 'POST') return Response.json({ error: 'POST로 요청해 주세요' }, { status: 405 });
       const apiKey = process.env.TYPESAFE_AI_API;
       if (!apiKey) {
         return Response.json(
-          { error: 'TYPESAFE_AI_API is not set (.env locally, Environment Variables on Vercel)' },
+          { error: 'TYPESAFE_AI_API가 설정되지 않았습니다 (로컬은 .env, Vercel은 Environment Variables)' },
           { status: 500 },
         );
       }
@@ -37,13 +37,13 @@ export function serve(route: Route) {
       try {
         body = await request.json();
       } catch {
-        return Response.json({ error: 'Expected a JSON body' }, { status: 400 });
+        return Response.json({ error: '본문은 JSON이어야 합니다' }, { status: 400 });
       }
       try {
         return Response.json(await route(body, jev));
       } catch (err) {
         if (err instanceof HttpError) return Response.json({ error: err.message }, { status: err.status });
-        return Response.json({ error: err instanceof Error ? err.message : 'Jev request failed' }, { status: 502 });
+        return Response.json({ error: err instanceof Error ? err.message : 'Jev 호출에 실패했습니다' }, { status: 502 });
       }
     },
   };

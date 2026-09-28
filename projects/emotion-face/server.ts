@@ -71,8 +71,8 @@ export interface EmotionReading {
 /** Served at POST /api/emotion-face/emotion with `{ text }`: how the recipient would feel, and how strongly. */
 export async function readEmotion(body: unknown, jev: TypeSafeClient): Promise<EmotionReading> {
   const text = (body as { text?: unknown } | null)?.text;
-  if (typeof text !== 'string' || !text.trim()) throw new HttpError(400, '"text" must be a non-empty string');
-  if (text.length > MAX_CHARS) throw new HttpError(413, `Messages are limited to ${MAX_CHARS} characters`);
+  if (typeof text !== 'string' || !text.trim()) throw new HttpError(400, '"text"에 메시지를 넣어 주세요');
+  if (text.length > MAX_CHARS) throw new HttpError(413, `메시지는 ${MAX_CHARS.toLocaleString()}자까지 보낼 수 있습니다`);
 
   const state = stateFor(text);
   const started = performance.now();

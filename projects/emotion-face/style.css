@@ -9,9 +9,10 @@
   /* Written every frame from main.ts: the blended emotion colour and how strongly it is felt. */
   --mood: 239 231 218;
   --mood-strength: 0;
-  --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
-  --sans: 'Hanken Grotesk', 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
-  --mono: 'Martian Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  /* Latin faces first; Hangul falls through to Hahmlet (serif) and Pretendard (sans, mono). */
+  --serif: 'Fraunces', 'Hahmlet', 'Iowan Old Style', Georgia, serif;
+  --sans: 'Hanken Grotesk', 'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
+  --mono: 'Martian Mono', 'Pretendard Variable', ui-monospace, 'SF Mono', Menlo, monospace;
   --ease: cubic-bezier(0.2, 0.7, 0.1, 1);
   color-scheme: dark;
 }
@@ -34,6 +35,8 @@ body {
   color: var(--ink);
   font: 400 15px/1.55 var(--sans);
   -webkit-font-smoothing: antialiased;
+  word-break: keep-all; /* Korean wraps between words, not inside them */
+  overflow-wrap: break-word;
 }
 
 /* Film grain over everything. */
@@ -119,7 +122,7 @@ body::after {
   margin: 0;
   transform: translate(-50%, -50%);
   font: 400 10px/1 var(--mono);
-  letter-spacing: 0.24em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-3);
   animation: breathe 1.4s ease-in-out infinite alternate;
@@ -143,8 +146,7 @@ body::after {
   gap: 10px;
   margin: 0 0 22px;
   font: 400 10px/1 var(--mono);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--ink-3);
 }
 
@@ -173,16 +175,22 @@ body::after {
 h1 {
   margin: 0;
   font-family: var(--serif);
-  font-size: clamp(34px, 3.3vw, 54px);
-  font-weight: 330;
+  font-size: clamp(28px, 2.7vw, 40px);
+  font-weight: 380;
   font-variation-settings: 'opsz' 144, 'SOFT' 100;
-  line-height: 1.02;
-  letter-spacing: -0.022em;
-  text-wrap: balance;
+  line-height: 1.24;
+  letter-spacing: -0.03em;
 }
 
+/* Each span is one phrase, so lines break between phrases rather than inside one. */
+h1 span {
+  display: inline-block;
+}
+
+/* Hangul has no italic, so the emphasis is colour and weight. */
 h1 em {
-  font-weight: 400;
+  font-style: normal;
+  font-weight: 560;
   color: rgb(var(--mood));
 }
 
@@ -190,6 +198,7 @@ h1 em {
   max-width: 36ch;
   margin: 22px 0 0;
   font-size: 14.5px;
+  line-height: 1.75;
   color: var(--ink-2);
 }
 
@@ -258,15 +267,9 @@ h1 em {
 
 .bubble__to {
   display: block;
-  font: 400 9.5px/1 var(--mono);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font: 500 11px/1 var(--sans);
+  letter-spacing: 0.02em;
   color: var(--ink-3);
-}
-
-.bubble__to span {
-  margin-left: 6px;
-  color: var(--ink-2);
 }
 
 /* Fixed at two lines so a growing message never shifts the layout under the face. */
@@ -381,18 +384,30 @@ textarea::placeholder {
   border-bottom-width: 1px;
 }
 
+/* Korean labels, with the matching field of Jev's answer set small beside them. */
 .label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   margin: 0 0 10px;
-  font: 400 9.5px/1.3 var(--mono);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font: 600 11.5px/1.3 var(--sans);
+  letter-spacing: 0.01em;
+  color: var(--ink-2);
+}
+
+.label code,
+.kv dt code,
+.kv__emotion code,
+.bars__name code {
+  font: 400 9.5px/1 var(--mono);
+  letter-spacing: 0;
   color: var(--ink-3);
 }
 
 /* Key–value rows for the summary and meta blocks. */
 .kv {
   display: grid;
-  grid-template-columns: 104px minmax(0, 1fr);
+  grid-template-columns: 120px minmax(0, 1fr);
   align-items: baseline;
   gap: 9px 12px;
   margin: 0;
@@ -400,6 +415,10 @@ textarea::placeholder {
 }
 
 .kv dt {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font: 400 12px/1.45 var(--sans);
   color: var(--ink-2);
 }
 
@@ -432,13 +451,7 @@ textarea::placeholder {
 }
 
 .kv__emotion b {
-  font-weight: 500;
-}
-
-.kv__emotion span {
-  font-family: var(--sans);
-  font-size: 12px;
-  color: var(--ink-3);
+  font: 600 13px/1 var(--sans);
 }
 
 .kv__bar {
@@ -487,7 +500,7 @@ textarea::placeholder {
 
 .bars li {
   display: grid;
-  grid-template-columns: 104px minmax(0, 1fr) 44px;
+  grid-template-columns: 120px minmax(0, 1fr) 44px;
   align-items: center;
   gap: 12px;
   height: 22px;
@@ -498,8 +511,9 @@ textarea::placeholder {
 .bars__name {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   overflow: hidden;
+  font: 400 12px/1 var(--sans);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -519,7 +533,7 @@ textarea::placeholder {
 }
 
 .bars li.is-top .bars__name {
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .meter__note {
@@ -622,9 +636,7 @@ textarea::placeholder {
 
 .credits span {
   flex: none;
-  width: 88px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  width: 64px;
   color: var(--ink-4);
 }
 
@@ -726,7 +738,7 @@ html:not(.is-live) :is(.kicker, h1, .lede, .readout, .composer, .credits, .stage
   }
 
   h1 {
-    font-size: clamp(30px, 8vw, 44px);
+    font-size: clamp(26px, 7.4vw, 38px);
   }
 
   .kicker {

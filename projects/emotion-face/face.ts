@@ -57,7 +57,7 @@ export class Face {
     const dictionary = head.morphTargetDictionary!;
     const morphIndex = ARKIT_BLENDSHAPES.map((name) => {
       const index = dictionary[name] ?? dictionary[`blendShape1.${name}`];
-      if (index === undefined) throw new Error(`facecap.glb has no "${name}" blendshape`);
+      if (index === undefined) throw new Error(`facecap.glb에 "${name}" blendshape가 없습니다`);
       return index;
     });
     const eyes = ['grp_eyeLeft', 'grp_eyeRight'].map((name) => {

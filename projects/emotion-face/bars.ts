@@ -2,6 +2,8 @@
 export interface BarRow {
   key: string;
   label: string;
+  /** Shown small beside the label, e.g. the id Jev answers with. */
+  hint?: string;
   /** Rows without a colour use the list's `--c`. */
   color?: string;
 }
@@ -11,12 +13,13 @@ export class ProbabilityBars {
   private readonly rows: { key: string; item: HTMLElement; value: HTMLElement }[];
 
   constructor(list: HTMLElement, rows: readonly BarRow[]) {
-    this.rows = rows.map(({ key, label, color }) => {
+    this.rows = rows.map(({ key, label, hint, color }) => {
       const item = document.createElement('li');
       if (color) item.style.setProperty('--c', color);
       const name = document.createElement('span');
       name.className = 'bars__name';
       name.textContent = label;
+      if (hint) name.append(Object.assign(document.createElement('code'), { textContent: hint }));
       const bar = document.createElement('span');
       bar.className = 'bar';
       bar.append(document.createElement('i'));

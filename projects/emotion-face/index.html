@@ -1,15 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Emotion Face</title>
-    <meta name="description" content="A 3D face that reacts in real time as you type, driven by TypeSafe AI's Jev." />
+    <title>반응하는 얼굴</title>
+    <meta
+      name="description"
+      content="메시지를 입력하는 동안 받는 사람이 느낄 감정을 TypeSafe AI의 Jev가 판단해 3D 얼굴에 실시간으로 보여줍니다."
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..600,0..100;1,9..144,300..600,0..100&family=Hanken+Grotesk:wght@400;500;600&family=Martian+Mono:wdth,wght@75..112.5,300..500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..600,0..100;1,9..144,300..600,0..100&family=Hahmlet:wght@300..600&family=Hanken+Grotesk:wght@400;500;600&family=Martian+Mono:wdth,wght@75..112.5,300..500&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
     />
     <!-- Linked here, not imported from main.ts: in dev an imported stylesheet only lands after
          the whole three.js module graph has loaded, and the page paints unstyled until then. -->
@@ -19,28 +26,28 @@
     <main class="layout">
       <div class="stage" id="stage" aria-hidden="true">
         <canvas id="face"></canvas>
-        <p class="stage__loading" id="loading">Loading face…</p>
+        <p class="stage__loading" id="loading">얼굴을 불러오는 중…</p>
       </div>
       <div class="face-slot" id="face-slot"></div>
 
       <header class="intro">
-        <p class="kicker"><i></i><a href="/">Jev Lab</a><span>/</span>Emotion Face</p>
-        <h1>A face that <em>reacts</em> in real time as my message changes</h1>
+        <p class="kicker"><i></i><a href="/">Jev 실험실</a><span>/</span>반응하는 얼굴</p>
+        <h1><span>메시지가 바뀌는 대로</span> <span>실시간으로</span> <span><em>반응하는</em> 얼굴</span></h1>
         <p class="lede">
-          As I type, TypeSafe AI’s Jev judges which emotion (1 of 8) the recipient would feel and how strongly →
-          applied instantly to a 3D face (52 ARKit blendshapes)
+          입력하는 동안 TypeSafe AI의 Jev가 받는 사람이 느낄 감정(8가지 중 하나)과 그 강도를 판단하고, 3D&nbsp;얼굴(ARKit
+          blendshape 52개)에 바로 적용합니다.
         </p>
       </header>
 
-      <section class="composer" aria-label="Message">
-        <div class="samples" id="samples" aria-label="Sample messages"></div>
+      <section class="composer" aria-label="메시지">
+        <div class="samples" id="samples" aria-label="예시 메시지"></div>
         <div class="bubble">
-          <label class="bubble__to" for="message">To <span>the recipient</span></label>
+          <label class="bubble__to" for="message">받는 사람</label>
           <textarea
             id="message"
             rows="2"
             maxlength="2000"
-            placeholder="Write something to someone…"
+            placeholder="누군가에게 보낼 메시지를 써 보세요…"
             autocomplete="off"
             spellcheck="false"
             autofocus
@@ -52,44 +59,44 @@
         </div>
       </section>
 
-      <aside class="readout" id="readout" aria-label="Jev's reading">
+      <aside class="readout" id="readout" aria-label="Jev의 판단">
         <dl class="kv">
-          <dt>emotion</dt>
+          <dt>감정 <code>emotion</code></dt>
           <dd class="kv__emotion" id="sum-emotion" aria-live="polite">–</dd>
-          <dt>intensity</dt>
+          <dt>강도 <code>intensity</code></dt>
           <dd class="kv__bar"><span class="bar" id="sum-intensity-bar"><i></i></span><span class="num" id="sum-intensity">–</span></dd>
-          <dt class="kv__dim">score (0–4)</dt>
+          <dt class="kv__dim">점수 <code>score 0–4</code></dt>
           <dd id="sum-score">–</dd>
         </dl>
 
         <section>
-          <h2 class="label">emotion.probabilities</h2>
+          <h2 class="label">감정 확률 <code>emotion.probabilities</code></h2>
           <ol class="bars bars--dots" id="emotion-bars"></ol>
         </section>
 
         <section>
-          <h2 class="label">intensity.probabilities</h2>
+          <h2 class="label">강도 확률 <code>intensity.probabilities</code></h2>
           <ol class="bars" id="intensity-bars"></ol>
         </section>
 
         <section>
-          <h2 class="label">meta</h2>
+          <h2 class="label">요청 정보</h2>
           <dl class="kv">
-            <dt>confidence</dt>
+            <dt>확신도 <code>confidence</code></dt>
             <dd id="meta-confidence">–</dd>
-            <dt>latency</dt>
+            <dt>응답 시간</dt>
             <dd id="meta-latency">–</dd>
-            <dt>input tokens</dt>
+            <dt>입력 토큰</dt>
             <dd id="meta-tokens">–</dd>
-            <dt>requests</dt>
+            <dt>요청 수</dt>
             <dd id="meta-requests">0</dd>
-            <dt>failures</dt>
+            <dt>실패 수</dt>
             <dd id="meta-failures">0</dd>
           </dl>
         </section>
 
         <section>
-          <h2 class="label">52 ARKit blendshapes</h2>
+          <h2 class="label">ARKit blendshape 52개</h2>
           <div class="shapes" id="shapes"></div>
           <p class="meter__note" id="top-shapes"></p>
         </section>
@@ -105,17 +112,17 @@
       </aside>
 
       <footer class="credits">
-        <p><span>Model</span>TypeSafe AI Jev (jev-latest, TypeSafe API)</p>
+        <p><span>모델</span>TypeSafe AI Jev (jev-latest, TypeSafe API)</p>
         <p>
-          <span>Face model</span><a href="https://www.bannaflak.com/face-cap" target="_blank" rel="noopener">Face Cap</a>
-          by Bannaflak
+          <span>얼굴 모델</span>Bannaflak의
+          <a href="https://www.bannaflak.com/face-cap" target="_blank" rel="noopener">Face Cap</a>
         </p>
         <p>
-          <span>Base code</span
+          <span>기반 코드</span
           ><a href="https://threejs.org/examples/#webgl_morphtargets_face" target="_blank" rel="noopener"
             >three.js “morph targets – face”</a
           >
-          example
+          예제
         </p>
       </footer>
     </main>

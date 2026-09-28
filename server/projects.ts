@@ -53,7 +53,7 @@ export function projectIndex(dir: string): Plugin {
           `<span class="entry__title">${title}</span><span class="entry__desc">${description}</span>` +
           `<span class="entry__go" aria-hidden="true">→</span></a></li>`,
       );
-      const empty = '<li class="entry--empty">No projects yet: add a folder with an index.html under projects/.</li>';
+      const empty = '<li class="entry--empty">아직 실습이 없습니다. projects/ 아래에 index.html이 있는 폴더를 추가하세요.</li>';
       return html.replace('<!-- projects -->', items.join('\n') || empty);
     },
   };

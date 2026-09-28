@@ -7,18 +7,18 @@ import { EMOTIONS, EMOTION_IDS, INTENSITY_LEVELS, NEUTRAL, moodOf, type Mood } f
 import { Face } from './face';
 import { ShapeMeter } from './meters';
 
-// One per emotion (each checked against Jev), then two in Korean.
+// One per emotion, in Korean (each checked against Jev), then two in English, where Jev is most accurate.
 const SAMPLES = [
-  'Meeting moved to 3pm. Room B.',
-  'We got the apartment!! Moving in next month 🎉',
-  "I'm so sorry. The vet said there's nothing more they can do.",
-  'You read my messages behind my back? Unbelievable.',
-  "Wait, you're in town?? Since when?!",
-  "Don't open the door. Someone has been following me all night.",
-  'Found a dead mouse in the rice bag we have been cooking from all week 🤢',
-  'I cheated on the final and still got an A. Studying is for losers.',
+  '내일 회의 3시로 옮겼어. 장소는 2층 회의실이야.',
   '생일 축하해! 네 덕분에 올해 정말 행복했어',
+  '미안해… 수의사 선생님이 이제 더 해줄 수 있는 게 없대.',
+  '너 내 카톡 몰래 봤어? 진짜 어이가 없다.',
+  '잠깐, 너 한국 왔다고?? 언제부터?!',
+  '문 열지 마. 누가 밤새 나를 따라오고 있어.',
+  '우리가 일주일 내내 먹던 쌀 포대에서 죽은 쥐가 나왔어 🤢',
   '시험 커닝해서 A 받았어ㅋㅋ 공부하는 애들은 바보지',
+  'We got the apartment!! Moving in next month 🎉',
+  "Don't open the door. Someone has been following me all night.",
 ];
 
 const $ = <T extends Element = HTMLElement>(selector: string) => document.querySelector(selector) as T;
@@ -46,7 +46,7 @@ const out = {
 
 const emotionBars = new ProbabilityBars(
   $('#emotion-bars'),
-  EMOTION_IDS.map((id) => ({ key: id, label: id, color: EMOTIONS[id].color })),
+  EMOTION_IDS.map((id) => ({ key: id, label: EMOTIONS[id].ko, hint: id, color: EMOTIONS[id].color })),
 );
 const intensityBars = new ProbabilityBars(
   $('#intensity-bars'),
@@ -126,7 +126,7 @@ Face.load(renderer)
     stageEl.classList.add('is-ready');
   })
   .catch((err: Error) => {
-    $('#loading').textContent = `Couldn't load the face: ${err.message}`;
+    $('#loading').textContent = `얼굴 모델을 불러오지 못했습니다: ${err.message}`;
   });
 
 // ── Mood: face, lights and page colour follow the latest reading ────────
@@ -252,19 +252,19 @@ function showReading({ request, response, latency_ms }: EmotionReading) {
 
   const dot = document.createElement('i');
   const name = document.createElement('b');
-  const ko = document.createElement('span');
-  name.textContent = `"${emotion.choice}"`;
-  ko.textContent = EMOTIONS[emotion.choice].ko;
-  out.emotion.replaceChildren(dot, name, ko);
+  const id = document.createElement('code');
+  name.textContent = EMOTIONS[emotion.choice].ko;
+  id.textContent = emotion.choice;
+  out.emotion.replaceChildren(dot, name, id);
   out.intensityBar.style.setProperty('--v', String(intensity.score / 4));
   out.intensity.textContent = (intensity.score / 4).toFixed(3);
   out.score.textContent = `${intensity.score.toFixed(3)} → "${INTENSITY_LEVELS[level]}"`;
-  out.confidence.textContent = `emotion=${emotion.confidence.toFixed(3)}\nintensity=${intensity.confidence.toFixed(3)}`;
-  out.latency.textContent = `${latency_ms} ms`;
+  out.confidence.textContent = `감정 ${emotion.confidence.toFixed(3)}\n강도 ${intensity.confidence.toFixed(3)}`;
+  out.latency.textContent = `${latency_ms}ms`;
   out.tokens.textContent = String(response.usage.input_tokens);
   out.rawResponse.textContent = JSON.stringify(response, null, 2);
   out.rawRequest.textContent = JSON.stringify(request, null, 2);
-  setStatus('ok', `${response.model} · ${latency_ms} ms · ${response.usage.input_tokens} tokens`);
+  setStatus('ok', `${response.model} · ${latency_ms}ms · 토큰 ${response.usage.input_tokens}개`);
 }
 
 function showIdle() {
@@ -275,7 +275,7 @@ function showIdle() {
   out.emotion.textContent = '–';
   out.intensityBar.style.setProperty('--v', '0');
   for (const el of [out.intensity, out.score, out.confidence, out.latency, out.tokens]) el.textContent = '–';
-  setStatus('idle', 'Waiting for your message');
+  setStatus('idle', '메시지를 기다리는 중');
 }
 
 let answered = false;
@@ -285,7 +285,7 @@ function setStatus(state: 'idle' | 'reading' | 'ok' | 'error', text?: string) {
   statusEl.dataset.state = state;
   if (state === 'ok') answered = true;
   if (text) statusText.textContent = text;
-  else if (!answered) statusText.textContent = 'Jev is reading…';
+  else if (!answered) statusText.textContent = 'Jev가 읽는 중…';
 }
 
 // ── Samples type themselves out, so the face changes as the sentence builds ──
@@ -322,7 +322,11 @@ input.addEventListener('input', () => {
 });
 
 showIdle();
-html.classList.add('is-live'); // everything the page draws from script now exists; let it in
+// Everything the page draws from script now exists. Korean web fonts are heavy, so give them
+// a moment to land before the reveal rather than swapping typefaces mid-animation.
+void Promise.race([document.fonts.ready, new Promise((done) => setTimeout(done, 800))]).then(() =>
+  html.classList.add('is-live'),
+);
 
 // ── Frame loop ───────────────────────────────────────────────────────────
 

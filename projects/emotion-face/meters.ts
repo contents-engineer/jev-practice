@@ -28,6 +28,6 @@ export class ShapeMeter {
       .sort((a, b) => weights[b] - weights[a])
       .slice(0, 3)
       .map((i) => `${ARKIT_BLENDSHAPES[i]} ${weights[i].toFixed(2).replace(/^0/, '')}`);
-    this.summary.textContent = top.length ? top.join(' · ') : 'at rest';
+    this.summary.textContent = top.length ? top.join(' · ') : '움직임 없음';
   }
 }

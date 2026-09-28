@@ -5,11 +5,12 @@
   --ink-3: rgb(239 231 218 / 0.42);
   --ink-4: rgb(239 231 218 / 0.18);
   --line: rgb(239 231 218 / 0.1);
-  /* Plutchik's wheel, clockwise from joy. */
-  --wheel: #f5cf3d, #9ad35c, #34b27a, #3cb6dc, #5584ec, #ab6fdb, #ef5143, #f59b3c;
-  --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
-  --sans: 'Hanken Grotesk', 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
-  --mono: 'Martian Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  /* Emotion Face's emotion colours (neutral grey left out). */
+  --wheel: #e9c24a, #f08c3b, #e2554b, #7d5ee0, #4f7fdc, #36a99b, #8ea83e;
+  /* Latin faces first; Hangul falls through to Hahmlet (serif) and Pretendard (sans, mono). */
+  --serif: 'Fraunces', 'Hahmlet', 'Iowan Old Style', Georgia, serif;
+  --sans: 'Hanken Grotesk', 'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
+  --mono: 'Martian Mono', 'Pretendard Variable', ui-monospace, 'SF Mono', Menlo, monospace;
   --ease: cubic-bezier(0.2, 0.7, 0.1, 1);
   color-scheme: dark;
 }
@@ -29,6 +30,8 @@ body {
     var(--bg);
   color: var(--ink);
   font: 400 15px/1.55 var(--sans);
+  word-break: keep-all; /* Korean wraps between words, not inside them */
+  overflow-wrap: break-word;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -44,7 +47,7 @@ body {
   gap: 10px;
   margin: 0 0 28px;
   font: 400 10px/1 var(--mono);
-  letter-spacing: 0.18em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-3);
 }
@@ -53,21 +56,23 @@ body {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: conic-gradient(var(--wheel), #f5cf3d);
+  background: conic-gradient(var(--wheel), #e9c24a);
 }
 
 h1 {
   margin: 0;
   font-family: var(--serif);
-  font-size: clamp(72px, 12vw, 168px);
+  font-size: clamp(64px, 10.5vw, 148px);
   font-weight: 300;
   font-variation-settings: 'opsz' 144, 'SOFT' 100;
-  line-height: 0.88;
-  letter-spacing: -0.04em;
+  line-height: 1;
+  letter-spacing: -0.045em;
 }
 
+/* Hangul has no italic: the gradient alone carries the emphasis. */
 h1 em {
-  padding-right: 0.06em; /* keeps the italic overhang inside the clipped gradient */
+  font-style: normal;
+  font-weight: 400;
   background: linear-gradient(100deg, var(--wheel));
   -webkit-background-clip: text;
   background-clip: text;
@@ -78,6 +83,7 @@ h1 em {
   max-width: 48ch;
   margin: 30px 0 0;
   font-size: 17px;
+  line-height: 1.75;
   color: var(--ink-2);
 }
 
@@ -116,11 +122,11 @@ h1 em {
 
 .entry__title {
   font-family: var(--serif);
-  font-size: 38px;
-  font-weight: 350;
+  font-size: 34px;
+  font-weight: 400;
   font-variation-settings: 'opsz' 144, 'SOFT' 100;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
 }
 
 .entry__desc {
@@ -164,9 +170,7 @@ h1 em {
 
 .howto span {
   display: inline-block;
-  width: 120px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  width: 96px;
   color: var(--ink-4);
 }
 
