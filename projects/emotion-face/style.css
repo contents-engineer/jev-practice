@@ -1,0 +1,780 @@
+:root {
+  --bg: #0b0a09;
+  --ink: #efe7da;
+  --ink-2: rgb(239 231 218 / 0.68);
+  --ink-3: rgb(239 231 218 / 0.42);
+  --ink-4: rgb(239 231 218 / 0.18);
+  --line: rgb(239 231 218 / 0.1);
+  --glass: rgb(18 16 14 / 0.62);
+  /* Written every frame from main.ts: the blended emotion colour and how strongly it is felt. */
+  --mood: 239 231 218;
+  --mood-strength: 0;
+  --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+  --sans: 'Hanken Grotesk', 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
+  --mono: 'Martian Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --ease: cubic-bezier(0.2, 0.7, 0.1, 1);
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 15px/1.55 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Film grain over everything. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.94 0 0 0 0 0.91 0 0 0 0 0.85 0 0 0 1.4 -0.4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── Layout ───────────────────────────────────────────────────────────── */
+
+.layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: clamp(270px, 27vw, 410px) minmax(0, 1fr) clamp(300px, 25vw, 372px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'intro   slot     readout'
+    '.       slot     readout'
+    'credits composer readout';
+  gap: 20px 28px;
+  height: 100svh;
+  padding: 32px 36px 28px;
+  pointer-events: none; /* drags on empty space reach the canvas */
+}
+
+.layout > :not(.stage, .face-slot) {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+.face-slot {
+  grid-area: slot;
+}
+
+/* ── Stage ────────────────────────────────────────────────────────────── */
+
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: auto;
+  background:
+    radial-gradient(
+      560px 520px at var(--glow-x, 50%) var(--glow-y, 45%),
+      rgb(var(--mood) / calc(0.07 + var(--mood-strength) * 0.24)),
+      transparent 72%
+    ),
+    radial-gradient(120% 60% at 50% 115%, #1c1712, transparent 70%),
+    var(--bg);
+}
+
+.stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 80% 90% at var(--glow-x, 50%) 45%, transparent 55%, rgb(0 0 0 / 0.55));
+}
+
+.stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 1.6s var(--ease);
+}
+
+.stage.is-ready canvas {
+  opacity: 1;
+}
+
+.stage__loading {
+  position: absolute;
+  left: var(--glow-x, 50%);
+  top: var(--glow-y, 45%);
+  margin: 0;
+  transform: translate(-50%, -50%);
+  font: 400 10px/1 var(--mono);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  animation: breathe 1.4s ease-in-out infinite alternate;
+  transition: opacity 0.6s;
+}
+
+.stage.is-ready .stage__loading {
+  visibility: hidden;
+  animation: none; /* the breathing animation would otherwise keep it visible */
+}
+
+/* ── Intro ────────────────────────────────────────────────────────────── */
+
+.intro {
+  grid-area: intro;
+}
+
+.kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 22px;
+  font: 400 10px/1 var(--mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.kicker i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgb(var(--mood));
+  box-shadow: 0 0 14px rgb(var(--mood) / 0.8);
+}
+
+.kicker a {
+  color: var(--ink-2);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.kicker a:hover {
+  color: var(--ink);
+}
+
+.kicker span {
+  color: var(--ink-4);
+}
+
+h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(34px, 3.3vw, 54px);
+  font-weight: 330;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100;
+  line-height: 1.02;
+  letter-spacing: -0.022em;
+  text-wrap: balance;
+}
+
+h1 em {
+  font-weight: 400;
+  color: rgb(var(--mood));
+}
+
+.lede {
+  max-width: 36ch;
+  margin: 22px 0 0;
+  font-size: 14.5px;
+  color: var(--ink-2);
+}
+
+/* ── Composer ─────────────────────────────────────────────────────────── */
+
+.composer {
+  grid-area: composer;
+  display: grid;
+  gap: 12px;
+  width: min(100%, 620px);
+  justify-self: center;
+}
+
+.samples {
+  display: flex;
+  gap: 8px;
+  margin: 0 -24px;
+  padding: 2px 24px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
+
+.sample {
+  flex: none;
+  max-width: 250px;
+  padding: 8px 13px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgb(239 231 218 / 0.04);
+  color: var(--ink-2);
+  font: 500 12.5px/1.1 var(--sans);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background 0.2s;
+}
+
+.sample:hover,
+.sample:focus-visible {
+  border-color: var(--ink-4);
+  background: rgb(239 231 218 / 0.09);
+  color: var(--ink);
+  outline: none;
+}
+
+.bubble {
+  padding: 14px 18px 12px;
+  border: 1px solid var(--line);
+  border-radius: 22px 22px 22px 6px;
+  background: var(--glass);
+  backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow:
+    0 30px 90px -30px rgb(var(--mood) / calc(var(--mood-strength) * 0.75)),
+    inset 0 1px 0 rgb(255 255 255 / 0.04);
+  transition: border-color 0.3s;
+}
+
+.bubble:focus-within {
+  border-color: rgb(var(--mood) / 0.45);
+}
+
+.bubble__to {
+  display: block;
+  font: 400 9.5px/1 var(--mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.bubble__to span {
+  margin-left: 6px;
+  color: var(--ink-2);
+}
+
+/* Fixed at two lines so a growing message never shifts the layout under the face. */
+textarea {
+  display: block;
+  width: 100%;
+  height: calc(2.9em + 18px);
+  padding: 10px 0 8px;
+  overflow-y: auto;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--ink);
+  font: 400 19px/1.45 var(--sans);
+  caret-color: rgb(var(--mood));
+}
+
+textarea::placeholder {
+  color: var(--ink-3);
+}
+
+.bubble__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font: 400 9.5px/1 var(--mono);
+  letter-spacing: 0.05em;
+  color: var(--ink-3);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.status span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.status i {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-4);
+}
+
+.status[data-state='reading'] i {
+  background: rgb(var(--mood));
+  animation: pulse 0.7s ease-in-out infinite alternate;
+}
+
+.status[data-state='ok'] i {
+  background: rgb(var(--mood));
+}
+
+.status[data-state='error'] {
+  color: #f08a80;
+}
+
+.status[data-state='error'] i {
+  background: #ef5143;
+}
+
+/* ── Readout ──────────────────────────────────────────────────────────── */
+
+.readout {
+  grid-area: readout;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-height: 0;
+  padding: 24px 22px 18px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgb(17 15 13 / 0.74), rgb(17 15 13 / 0.52));
+  backdrop-filter: blur(16px);
+}
+
+/* Viewfinder corners. */
+.readout::before,
+.readout::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 0 solid var(--ink-3);
+  pointer-events: none;
+}
+
+.readout::before {
+  top: -1px;
+  left: -1px;
+  border-top-width: 1px;
+  border-left-width: 1px;
+}
+
+.readout::after {
+  right: -1px;
+  bottom: -1px;
+  border-right-width: 1px;
+  border-bottom-width: 1px;
+}
+
+.label {
+  margin: 0;
+  font: 400 9.5px/1.3 var(--mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.verdict {
+  margin: 12px 0 10px;
+  font-family: var(--serif);
+  font-size: 50px;
+  font-weight: 350;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100;
+  line-height: 0.95;
+  letter-spacing: -0.025em;
+  color: var(--c, var(--ink-4));
+  transition: color 0.4s;
+}
+
+.verdict__sub {
+  min-height: 1.4em;
+  margin: 0;
+  font: 400 10.5px/1.4 var(--mono);
+  color: var(--ink-2);
+}
+
+.wheel {
+  margin: 0 -6px;
+}
+
+.wheel svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.wheel figcaption {
+  margin-top: 4px;
+  text-align: center;
+}
+
+.wheel__ring {
+  fill: none;
+  stroke: var(--line);
+  stroke-dasharray: 2 4;
+}
+
+.wheel__guide {
+  fill: none;
+  stroke: var(--c);
+  stroke-opacity: 0.2;
+}
+
+.wheel__petal {
+  fill: var(--c);
+  fill-opacity: 0.5;
+  stroke: var(--c);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  transition: fill-opacity 0.3s;
+}
+
+.is-choice .wheel__petal {
+  fill-opacity: 0.92;
+  filter: drop-shadow(0 0 10px var(--c));
+}
+
+.wheel__label {
+  font: 400 9.5px var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.wheel__name {
+  fill: var(--ink-3);
+  transition: fill 0.3s;
+}
+
+.is-choice .wheel__name {
+  fill: var(--ink);
+}
+
+.wheel__pct {
+  fill: var(--c);
+  fill-opacity: 0.75;
+  letter-spacing: 0.04em;
+}
+
+.wheel__hub {
+  fill: var(--ink-3);
+}
+
+.meter header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.meter .label {
+  flex: none;
+}
+
+.num,
+.meter__note {
+  min-width: 0;
+  overflow: hidden;
+  font: 400 9.5px/1.3 var(--mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-2);
+}
+
+.meter__note {
+  margin: 8px 0 0;
+}
+
+.gauge {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+
+.gauge__track {
+  display: flex;
+  align-items: flex-end;
+  height: 44px;
+  border-bottom: 1px solid var(--ink-4);
+  background: repeating-linear-gradient(0deg, var(--line) 0 1px, transparent 1px 11px);
+}
+
+.gauge__bar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: scaleY(var(--p, 0));
+  transform-origin: bottom;
+  background: linear-gradient(180deg, rgb(var(--mood)), rgb(var(--mood) / 0.3));
+  transition: transform 0.45s var(--ease);
+}
+
+.gauge__level {
+  display: block;
+  margin-top: 7px;
+  font: 400 8.5px/1.2 var(--mono);
+  font-stretch: 75%;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.gauge__level b {
+  display: block;
+  margin-bottom: 2px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.gauge__marker {
+  position: absolute;
+  top: -6px;
+  width: 1px;
+  height: 52px;
+  background: var(--ink);
+  transform: translateX(-0.5px);
+  transition: left 0.45s var(--ease);
+}
+
+.gauge__marker::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -3px;
+  border: 3.5px solid transparent;
+  border-top-color: var(--ink);
+}
+
+.shapes {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 34px;
+}
+
+.shapes i {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  border-radius: 1px;
+  background: rgb(239 231 218 / 0.05);
+}
+
+.shapes i::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 1px;
+  background: var(--ink-3);
+  transform: scaleY(var(--w, 0));
+  transform-origin: bottom;
+}
+
+.shapes i.is-on::after {
+  background: rgb(var(--mood));
+}
+
+.raw summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  font: 400 9.5px/1 var(--mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.raw summary::-webkit-details-marker {
+  display: none;
+}
+
+.raw summary::before {
+  content: '+';
+  width: 10px;
+  color: var(--ink-2);
+}
+
+.raw[open] summary::before {
+  content: '−';
+}
+
+.raw summary:hover {
+  color: var(--ink-2);
+}
+
+.raw pre {
+  max-height: 300px;
+  margin: 12px 0 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: rgb(0 0 0 / 0.28);
+  font: 400 10px/1.5 var(--mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink-2);
+}
+
+/* ── Credits ──────────────────────────────────────────────────────────── */
+
+.credits {
+  grid-area: credits;
+  align-self: end;
+  font: 400 9.5px/1.9 var(--mono);
+  letter-spacing: 0.03em;
+  color: var(--ink-3);
+}
+
+.credits p {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 6px;
+  margin: 0;
+}
+
+.credits span {
+  flex: none;
+  width: 88px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.credits a {
+  border-bottom: 1px solid var(--ink-4);
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.credits a:hover {
+  border-color: var(--ink-2);
+  color: var(--ink);
+}
+
+/* ── Motion ───────────────────────────────────────────────────────────── */
+
+/* main.ts builds the wheel, meters and samples, then adds .is-live; until then only the
+   empty stage shows, so the page never appears half-built. */
+html:not(.is-live) :is(.kicker, h1, .lede, .readout, .composer, .credits, .stage__loading) {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The stagger goes through --delay: a plain animation-delay would lose to this shorthand's specificity. */
+  .is-live :is(.kicker, h1, .lede, .readout, .composer, .credits) {
+    animation: rise 1.1s var(--ease) var(--delay, 0s) both;
+  }
+
+  h1 {
+    --delay: 0.08s;
+  }
+
+  .lede {
+    --delay: 0.18s;
+  }
+
+  .readout {
+    --delay: 0.28s;
+  }
+
+  .composer {
+    --delay: 0.4s;
+  }
+
+  .credits {
+    --delay: 0.52s;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes pulse {
+  to {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
+}
+
+@keyframes breathe {
+  to {
+    opacity: 0.35;
+  }
+}
+
+/* ── Narrow screens: stack everything, the face gets its own band ────── */
+
+@media (max-width: 1023px) {
+  body {
+    overflow: auto;
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: 'intro' 'stage' 'composer' 'readout' 'credits';
+    gap: 18px;
+    height: auto;
+    min-height: 100svh;
+    padding: 24px 16px 28px;
+  }
+
+  .stage {
+    position: relative;
+    inset: auto;
+    grid-area: stage;
+    height: 56svh;
+    min-height: 340px;
+    margin: 0 -16px;
+    mask-image: linear-gradient(transparent, #000 8%, #000 92%, transparent);
+  }
+
+  .face-slot {
+    display: none;
+  }
+
+  h1 {
+    font-size: clamp(30px, 8vw, 44px);
+  }
+
+  .kicker {
+    margin-bottom: 16px;
+  }
+
+  .lede {
+    margin-top: 14px;
+  }
+
+  .composer {
+    width: 100%;
+  }
+
+  .readout {
+    overflow: visible;
+  }
+}

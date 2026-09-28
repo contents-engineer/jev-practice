@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Emotion Face</title>
+    <meta name="description" content="A 3D face that reacts in real time as you type, driven by TypeSafe AI's Jev." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..600,0..100;1,9..144,300..600,0..100&family=Hanken+Grotesk:wght@400;500;600&family=Martian+Mono:wdth,wght@75..112.5,300..500&display=swap"
+    />
+    <!-- Linked here, not imported from main.ts: in dev an imported stylesheet only lands after
+         the whole three.js module graph has loaded, and the page paints unstyled until then. -->
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <div class="stage" id="stage" aria-hidden="true">
+        <canvas id="face"></canvas>
+        <p class="stage__loading" id="loading">Loading face…</p>
+      </div>
+      <div class="face-slot" id="face-slot"></div>
+
+      <header class="intro">
+        <p class="kicker"><i></i><a href="/">Jev Lab</a><span>/</span>Emotion Face</p>
+        <h1>A face that <em>reacts</em> in real time as my message changes</h1>
+        <p class="lede">
+          As I type, TypeSafe AI’s Jev judges which emotion (1 of 8) the recipient would feel and how strongly →
+          applied instantly to a 3D face (52 ARKit blendshapes)
+        </p>
+      </header>
+
+      <section class="composer" aria-label="Message">
+        <div class="samples" id="samples" aria-label="Sample messages"></div>
+        <div class="bubble">
+          <label class="bubble__to" for="message">To <span>the recipient</span></label>
+          <textarea
+            id="message"
+            rows="2"
+            maxlength="2000"
+            placeholder="Write something to someone…"
+            autocomplete="off"
+            spellcheck="false"
+            autofocus
+          ></textarea>
+          <div class="bubble__meta">
+            <span class="status" id="status" data-state="idle"><i></i><span id="status-text"></span></span>
+            <span id="count">0 / 2000</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="readout" aria-label="Jev's reading">
+        <section>
+          <p class="label">The recipient would feel</p>
+          <h2 class="verdict" id="verdict" aria-live="polite">—</h2>
+          <p class="verdict__sub" id="verdict-sub"></p>
+        </section>
+        <figure class="wheel">
+          <svg id="wheel" viewBox="-172 -142 344 288" role="img" aria-label="Probability Jev gives each of the eight emotions"></svg>
+          <figcaption class="label">Choice · petal area = probability</figcaption>
+        </figure>
+        <section class="meter">
+          <header><span class="label">Score · intensity</span><span class="num" id="score">–</span></header>
+          <div class="gauge" id="gauge"></div>
+        </section>
+        <section class="meter">
+          <header><span class="label">52 ARKit blendshapes</span></header>
+          <div class="shapes" id="shapes"></div>
+          <p class="meter__note" id="top-shapes"></p>
+        </section>
+        <details class="raw">
+          <summary>Raw Jev request &amp; response</summary>
+          <pre id="raw">Nothing sent yet.</pre>
+        </details>
+      </aside>
+
+      <footer class="credits">
+        <p><span>Model</span>TypeSafe AI Jev (jev-latest, TypeSafe API)</p>
+        <p>
+          <span>Face model</span><a href="https://www.bannaflak.com/face-cap" target="_blank" rel="noopener">Face Cap</a>
+          by Bannaflak
+        </p>
+        <p>
+          <span>Base code</span
+          ><a href="https://threejs.org/examples/#webgl_morphtargets_face" target="_blank" rel="noopener"
+            >three.js “morph targets – face”</a
+          >
+          example
+        </p>
+      </footer>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
