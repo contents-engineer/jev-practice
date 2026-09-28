@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>취조실</title>
+    <meta
+      name="description"
+      content="형사의 말을 TypeSafe AI의 Jev가 일곱 가지로 읽고, 그 판독으로 용의자의 압박·신뢰·방어가 움직입니다. 느낌표가 아니라 진술과 증거로 12턴 안에 자백을 받아내는 게임."
+    />
+    <meta name="theme-color" content="#0b0a09" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..600,0..100;1,9..144,300..600,0..100&family=Hahmlet:wght@300..600&family=Hanken+Grotesk:wght@400;500;600&family=Martian+Mono:wdth,wght@75..112.5,300..500&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    />
+    <!-- Linked here rather than imported from main.ts so the page never paints unstyled while three.js loads. -->
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="stage" id="stage" aria-hidden="true">
+      <canvas id="face"></canvas>
+      <p class="stage__loading" id="loading">용의자를 불러오는 중…</p>
+    </div>
+
+    <!-- ── Start: pick a case ─────────────────────────────────────────── -->
+    <main class="start" id="start">
+      <header class="intro">
+        <p class="kicker"><i></i><a href="/">Jev 실험실</a><span>/</span>취조실</p>
+        <h1>
+          <span>느낌표는</span> <span>통하지 않는다.</span><br />
+          <span>말의 뜻으로</span> <span><em>자백</em>을 받아내라</span>
+        </h1>
+        <p class="lede">
+          형사의 한 마디를 TypeSafe AI의 Jev가 일곱 가지로 읽습니다. 무엇을 하려는 말인지, 어느 증거를 가리키는지, 얼마나
+          적대적인지. 그 판독으로 용의자의 압박·신뢰·방어가 움직이고, 12턴 안에 자백을 받아내야 합니다. 대사는 생성하지
+          않습니다. 판단만 AI가 하고, 나머지는 코드가 합니다.
+        </p>
+      </header>
+
+      <ol class="cases" id="cases" aria-label="사건"></ol>
+
+      <section class="rules" aria-label="이 게임이 읽는 것">
+        <h2 class="label">이 게임이 읽는 것</h2>
+        <ul class="rules__list">
+          <li><b>행동</b><code>move</code><span>라포 · 열린 질문 · 세부 추궁 · 증거 제시 · 허세 · 추궁 · 위협 · 최소화 · 무관 · 불명확</span></li>
+          <li><b>화제</b><code>topic</code><span>어느 진술을 건드리는가. 진술이 나온 뒤에 증거를 대야 모순이 잡힙니다</span></li>
+          <li><b>증거</b><code>evidence</code><span>사건 파일의 어떤 항목을 이름 붙여 말했는가. 파일에 없는 증거는 허세로 읽힙니다</span></li>
+          <li><b>적대성</b><code>hostility</code><span>정중 · 단호 · 폭언 · 위법. 위법한 압박이나 거짓 약속은 자백을 무효로 만듭니다</span></li>
+          <li><b>공감 · 거짓 약속 · 대답 요구</b><code>empathy · false_promise · expects_answer</code><span>신뢰를 여는 말인지, 법적 이익을 약속하는지, 대답을 기다리는 말인지</span></li>
+        </ul>
+      </section>
+
+      <footer class="credits">
+        <p><span>모델</span>TypeSafe AI Jev (jev-latest, TypeSafe API) · 판단만 하고 문장은 생성하지 않습니다</p>
+        <p><span>사건</span>모두 창작이며 실제 사건·인물과 관계없습니다</p>
+        <p><span>얼굴</span>Bannaflak의 <a href="https://www.bannaflak.com/face-cap" target="_blank" rel="noopener">Face Cap</a> · 반응하는 얼굴과 같은 모델</p>
+      </footer>
+    </main>
+
+    <!-- ── The room ───────────────────────────────────────────────────── -->
+    <main class="room" id="room" hidden data-panel="talk">
+      <nav class="tabs" aria-label="패널">
+        <button type="button" data-tab="file">사건 파일</button>
+        <button type="button" data-tab="talk" aria-current="true">취조</button>
+        <button type="button" data-tab="readout">판독</button>
+      </nav>
+
+      <aside class="file panel" id="file" aria-label="사건 파일">
+        <p class="kicker"><i></i><button type="button" class="linkish" id="back">사건 목록</button><span>/</span><span id="file-difficulty"></span></p>
+        <h2 class="file__title" id="file-title"></h2>
+        <p class="file__suspect" id="file-suspect"></p>
+        <div class="file__brief" id="file-brief"></div>
+        <ul class="tips" id="file-tips"></ul>
+        <section>
+          <h3 class="label">증거 <code>evidence</code></h3>
+          <p class="hint">누르면 입력창에 이름이 들어갑니다. 진술이 나온 뒤에 제시해야 모순이 됩니다.</p>
+          <ol class="evidence" id="evidence"></ol>
+        </section>
+        <section>
+          <h3 class="label">수첩 · 용의자의 진술 <code>committed</code></h3>
+          <ol class="notes" id="notes"></ol>
+        </section>
+      </aside>
+
+      <section class="table panel" aria-label="취조">
+        <div class="face-slot" id="face-slot">
+          <p class="nameplate"><b id="plate-name"></b><span id="plate-tier"></span></p>
+        </div>
+        <div class="meters" id="meters">
+          <div class="meter meter--pressure">
+            <span class="meter__name">압박 <code>pressure</code></span>
+            <canvas class="ecg" id="ecg" width="600" height="72" aria-hidden="true"></canvas>
+            <b class="meter__value" id="m-pressure">0</b>
+          </div>
+          <div class="meter">
+            <span class="meter__name">신뢰 <code>trust</code></span>
+            <span class="bar bar--trust"><i></i></span>
+            <b class="meter__value" id="m-trust">0</b>
+          </div>
+          <div class="meter">
+            <span class="meter__name">방어 <code>guard</code></span>
+            <span class="bar bar--guard"><i></i></span>
+            <b class="meter__value" id="m-guard">0</b>
+          </div>
+          <div class="meter meter--tally">
+            <span class="meter__name">모순</span>
+            <span class="pips" id="m-cracks"></span>
+            <span class="meter__name meter__name--turns">남은 턴</span>
+            <b class="meter__value" id="m-turns">12</b>
+          </div>
+        </div>
+        <ol class="talk" id="talk" aria-live="polite"></ol>
+        <form class="say" id="say">
+          <label class="say__to" for="line">형사</label>
+          <textarea
+            id="line"
+            rows="2"
+            maxlength="200"
+            placeholder="용의자에게 할 말을 쓰세요. Enter로 말하기, Shift+Enter로 줄바꿈"
+            autocomplete="off"
+            spellcheck="false"
+          ></textarea>
+          <div class="say__meta">
+            <span class="status" id="status" data-state="idle"><i></i><span id="status-text">대기 중</span></span>
+            <span class="count" id="count">0 / 200</span>
+            <button type="submit" class="send" id="send">말하기</button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="readout panel" id="readout" aria-label="Jev의 판독">
+        <p class="reading-note" id="reading-note">첫 마디를 하면 Jev가 그 말을 어떻게 읽었는지 여기에 나타납니다. 대사는 사건 파일에서 고릅니다.</p>
+        <dl class="kv">
+          <dt>행동 <code>move</code></dt>
+          <dd id="r-move">–</dd>
+          <dt>화제 <code>topic</code></dt>
+          <dd id="r-topic">–</dd>
+          <dt>증거 <code>evidence</code></dt>
+          <dd id="r-evidence">–</dd>
+          <dt>적대성 <code>hostility.score</code></dt>
+          <dd id="r-hostility">–</dd>
+          <dt>공감 <code>empathy</code></dt>
+          <dd id="r-empathy">–</dd>
+          <dt>거짓 약속 <code>false_promise</code></dt>
+          <dd id="r-promise">–</dd>
+          <dt>대답 요구 <code>expects_answer</code></dt>
+          <dd id="r-expects">–</dd>
+        </dl>
+        <section>
+          <h2 class="label">행동 확률 <code>move.probabilities</code></h2>
+          <ol class="bars" id="move-bars"></ol>
+        </section>
+        <section>
+          <h2 class="label">적대성 확률 <code>hostility.probabilities</code></h2>
+          <ol class="bars" id="hostility-bars"></ol>
+        </section>
+        <section>
+          <h2 class="label">요청 정보</h2>
+          <dl class="kv">
+            <dt>확신도 <code>move.confidence</code></dt>
+            <dd id="meta-confidence">–</dd>
+            <dt>서버 Jev 호출</dt>
+            <dd id="meta-latency">–</dd>
+            <dt>입력 토큰</dt>
+            <dd id="meta-tokens">–</dd>
+            <dt>요청 수</dt>
+            <dd id="meta-requests">0</dd>
+            <dt>실패 수</dt>
+            <dd id="meta-failures">0</dd>
+          </dl>
+        </section>
+        <details class="raw">
+          <summary>원본 응답 JSON</summary>
+          <pre id="raw-response">아직 응답이 없습니다.</pre>
+        </details>
+        <details class="raw">
+          <summary>요청 JSON</summary>
+          <pre id="raw-request">아직 요청이 없습니다.</pre>
+        </details>
+      </aside>
+    </main>
+
+    <dialog class="ending" id="ending" aria-labelledby="ending-title">
+      <p class="ending__kicker" id="ending-kicker"></p>
+      <h2 class="ending__title" id="ending-title"></h2>
+      <p class="ending__grade"><b id="ending-grade"></b><span id="ending-stats"></span></p>
+      <div class="ending__body" id="ending-body"></div>
+      <p class="ending__note" id="ending-note"></p>
+      <pre class="ending__share" id="ending-share"></pre>
+      <div class="ending__actions">
+        <button type="button" class="send" id="share">결과 복사</button>
+        <button type="button" id="retry">다시 취조</button>
+        <button type="button" id="to-cases">다른 사건</button>
+      </div>
+    </dialog>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

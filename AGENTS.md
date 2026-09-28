@@ -34,9 +34,20 @@ Vercel은 이 저장소의 `tsc`(TypeScript 7)로 `api/` 진입점과 그 import
 - 모델은 서버 `TYPESAFE_MODEL`로 고정할 수 있고 기본값은 `jev-latest`다. 모델/질문 변경 시 평가 보고서의 실제 버전·질문과 결과를 함께 비교한다.
 - `server/budget.ts`는 서버 인스턴스별 동시 4개·분당 120개·UTC 일일 2,000개 한도다. 실패한 허용 요청도 집계한다. 메모리 한도를 Vercel 전체의 분산 한도나 금액 상한으로 설명하지 않는다. 브라우저 15초, SDK 시도당 5초·재시도 1회 제한을 유지한다.
 
+## 취조실 (interrogation)
+
+- 게임 로직은 `projects/interrogation/engine.ts`의 순수 함수(`applyTurn`)에만 둔다. 미터 수치·자백 조건·등급을 바꾸면 `tests/interrogation.test.mjs`의 규칙 테스트와 README의 효과 표를 함께 고친다. 브라우저는 상태를 들고 있고 서버는 무상태다.
+- Jev 질문 7개는 `server.ts`의 `questionsFor()`가 사건 데이터로 만든다. 행동(`move`) 기준의 `not_for`에 이웃 행동과의 경계를 적고, 예시는 한국어로 둔다. 화제·증거 선택지는 `cases.ts`의 `examples`에서 나오므로 사건을 추가하면 예시도 같이 쓴다.
+- **증거 id는 `move === 'present_evidence'`일 때만 소비한다.** Jev는 화제를 묻는 말에도 관련 증거 id를 고르므로, 행동으로 가리지 않으면 진술 전 증거 제시로 오판돼 "진술 먼저, 증거 나중" 루프가 깨진다. 판독 칩도 같은 규칙으로 증거를 표시한다.
+- 사건 데이터 규약(`CaseFile`): 화제마다 `statement`(첫 진술, 거짓말)와 `statement_en`(state용), 증거마다 `breaks`(깨는 화제 id 또는 null), `crack`·`adapt`·`repeat` 대사, 무관한 증거는 `deflect`. `adapted_statement_en`은 진술 전 제시로 바뀐 이야기를 state에 넣는 데 쓴다. `cracksNeeded`는 깨는 증거가 있는 화제 수를 넘지 않는다. 무결성 테스트가 이 규약을 검사한다.
+- 강압 규칙(적대성 3단계·거짓 약속 → 자백 무효)은 「!!!」로 자백을 받아내던 원작 게임을 뒤집는 핵심이다. 임계값(`hostilityLevel` 3 판정에 3단계 확률 0.5, noul 0.6)을 완화하려면 평가 결과로 근거를 남긴다.
+- 용의자 대사는 생성하지 않고 `cases.ts`에서 고른다(엔딩 → 증거 경로 → 화제 경로 → 일반 대사 순). 새 대사는 tier별 배열에 추가하고, 없는 tier는 `calm`으로 대체된다.
+- 얼굴은 `../emotion-face/face`와 `../emotion-face/emotions`를 import해 재사용하고, `director.ts`가 tier·이벤트를 Mood로 바꾼다. 감정 프리셋을 바꾸면 두 페이지에 모두 영향이 있다.
+- 질문·사건·엔진을 바꿨으면 dev 서버를 켜고 `npm run eval:interrogation`(과금)으로 `evals/interrogation-cases.json`을 다시 돌린다. 기대값은 실행 전에 정하고 결과에 맞춰 바꾸지 않는다. 브라우저에서는 사건 1을 진술 → 증거 순서로 플레이해 모순·자백까지 본다. 보고서는 `evals/reports/interrogation-latest.json`(Git 제외).
+
 ## 검증
 
 - 매번: `npm test`, `npm run typecheck`, `npm run build`.
-- 질문·선택지·모델을 바꿨으면: dev 서버 실행 후 `npm run eval:emotion`으로 `samples.ts`의 모든 예시와 `evals/emotion-cases.json`의 별도 문장을 실제 Jev로 평가한다(과금). 보고서는 `evals/reports/latest.json`에 저장되고 Git에서 제외된다. 불일치·서비스 실패는 종료 코드 1로 구분해 기록한다. 기대값은 미리 정하며, 결과를 맞추기 위해 사후 변경하지 않는다. 작은 회귀 세트 통과를 일반 정확도로 주장하지 않는다.
+- 질문·선택지·모델을 바꿨으면: dev 서버 실행 후 `npm run eval:emotion`(반응하는 얼굴) 또는 `npm run eval:interrogation`(취조실)으로 `samples.ts`의 모든 예시와 `evals/emotion-cases.json`의 별도 문장을 실제 Jev로 평가한다(과금). 보고서는 `evals/reports/latest.json`에 저장되고 Git에서 제외된다. 불일치·서비스 실패는 종료 코드 1로 구분해 기록한다. 기대값은 미리 정하며, 결과를 맞추기 위해 사후 변경하지 않는다. 작은 회귀 세트 통과를 일반 정확도로 주장하지 않는다.
 - API를 바꿨으면: dev 서버에 `curl -X POST localhost:5173/api/<name>/<route> -H 'Content-Type: application/json' -d '{...}'`를 보내 정상 응답과 400/405를 확인한다.
 - 화면을 바꿨으면: 브라우저에서 샘플 칩을 눌러 패널 값과 표정을 직접 본다. 편집 도중 열려 있던 탭이 HMR 중간 상태로 매 프레임 에러를 내면, dev 서버가 그 로그에 막혀 응답하지 않는다. 그러면 탭을 새로 고치거나 dev 서버를 재시작한다.
