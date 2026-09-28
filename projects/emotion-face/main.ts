@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import Swiper from 'swiper';
+import { FreeMode, Mousewheel } from 'swiper/modules';
 import type { EmotionReading } from './server';
 import { ProbabilityBars } from './bars';
 import { EMOTIONS, EMOTION_IDS, INTENSITY_LEVELS, NEUTRAL, moodOf, type Mood } from './emotions';
@@ -281,14 +283,34 @@ function typeOut(sample: string) {
 }
 
 const samplesEl = $('#samples');
-for (const { text: sample } of SAMPLES) {
+const sampleButtons = SAMPLES.map(({ text: sample }) => {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'sample';
+  button.className = 'sample swiper-slide';
   button.textContent = sample;
-  button.addEventListener('click', () => typeOut(sample));
-  samplesEl.append(button);
-}
+  button.addEventListener('click', () => typeOut(sample)); // Swiper swallows the click that ends a drag
+  return button;
+});
+samplesEl.querySelector('.swiper-wrapper')!.append(...sampleButtons);
+
+const samplesSwiper = new Swiper(samplesEl, {
+  modules: [FreeMode, Mousewheel],
+  slidesPerView: 'auto',
+  spaceBetween: 8,
+  slidesOffsetBefore: 24,
+  slidesOffsetAfter: 24,
+  freeMode: { enabled: true, momentumRatio: 0.6 },
+  mousewheel: { forceToAxis: true }, // horizontal trackpad swipes only; vertical wheel still scrolls the page
+  grabCursor: true,
+});
+// Tabbing to a chip past the edge: the browser would scroll the overflow-hidden container
+// behind Swiper's back, so undo that and let Swiper bring the chip into view.
+samplesEl.addEventListener('focusin', (event) => {
+  const index = sampleButtons.indexOf(event.target as HTMLButtonElement);
+  if (index < 0) return;
+  samplesEl.scrollLeft = 0;
+  samplesSwiper.slideTo(index);
+});
 
 input.addEventListener('input', () => {
   clearInterval(typing); // the person took over the keyboard
