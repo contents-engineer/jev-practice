@@ -6,20 +6,8 @@ import { ProbabilityBars } from './bars';
 import { EMOTIONS, EMOTION_IDS, INTENSITY_LEVELS, NEUTRAL, moodOf, type Mood } from './emotions';
 import { Face } from './face';
 import { ShapeMeter } from './meters';
-
-// One per emotion, in Korean (each checked against Jev), then two in English, where Jev is most accurate.
-const SAMPLES = [
-  '내일 회의 3시로 옮겼어. 장소는 2층 회의실이야.',
-  '생일 축하해! 네 덕분에 올해 정말 행복했어',
-  '미안해… 수의사 선생님이 이제 더 해줄 수 있는 게 없대.',
-  '너 내 카톡 몰래 봤어? 진짜 어이가 없다.',
-  '잠깐, 너 한국 왔다고?? 언제부터?!',
-  '문 열지 마. 누가 밤새 나를 따라오고 있어.',
-  '우리가 일주일 내내 먹던 쌀 포대에서 죽은 쥐가 나왔어 🤢',
-  '시험 커닝해서 A 받았어ㅋㅋ 공부하는 애들은 바보지',
-  'We got the apartment!! Moving in next month 🎉',
-  "Don't open the door. Someone has been following me all night.",
-];
+import { SAMPLES } from './samples';
+import { ReadingLoop } from './reading-loop';
 
 const $ = <T extends Element = HTMLElement>(selector: string) => document.querySelector(selector) as T;
 const html = document.documentElement;
@@ -37,6 +25,9 @@ const out = {
   score: $('#sum-score'),
   confidence: $('#meta-confidence'),
   latency: $('#meta-latency'),
+  elapsed: $('#meta-elapsed'),
+  analyzed: $('#analyzed-message'),
+  note: $('#reading-note'),
   tokens: $('#meta-tokens'),
   requests: $('#meta-requests'),
   failures: $('#meta-failures'),
@@ -181,6 +172,7 @@ async function fetchReading(text: string): Promise<EmotionReading> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
+      signal: AbortSignal.timeout(15_000),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status})`);
@@ -191,64 +183,43 @@ async function fetchReading(text: string): Promise<EmotionReading> {
   }
 }
 
-/** Bumped whenever the text is replaced wholesale, so answers for the old text are dropped. */
-let generation = 0;
-let busy = false;
-let dirty = false;
-let pending = 0;
-
-/**
- * One request in flight at a time. Keystrokes that land meanwhile mark the text dirty,
- * and the newest text goes out as soon as the answer comes back, so the face keeps up
- * with typing without piling up requests.
- */
-async function pump() {
-  if (busy) {
-    dirty = true;
-    return;
-  }
-  busy = true;
-  setStatus('reading');
-  do {
-    dirty = false;
-    const text = input.value.trim();
-    if (!text) break;
-    const asked = generation;
-    try {
-      const reading = await fetchReading(text);
-      if (asked === generation) showReading(reading);
-    } catch (err) {
-      if (asked === generation) setStatus('error', (err as Error).message);
-    }
-  } while (dirty);
-  busy = false;
-}
+const readings = new ReadingLoop<EmotionReading>({
+  read: fetchReading,
+  show: (reading, text, elapsed) => {
+    showReading(reading);
+    out.analyzed.textContent = text;
+    out.elapsed.textContent = `${elapsed}ms`;
+  },
+  pending: () => {
+    setMood(NEUTRAL);
+    out.note.textContent = '입력이 바뀌었습니다. 아래 값은 마지막 분석 결과이며, 현재 문장을 다시 읽고 있습니다.';
+    setStatus('reading', '현재 문장을 읽는 중…');
+  },
+  idle: showIdle,
+  error: (error) => {
+    out.note.textContent = '현재 문장을 분석하지 못했습니다. 아래 값은 마지막 분석 결과입니다.';
+    setStatus('error', error instanceof Error ? error.message : '요청에 실패했습니다');
+  },
+});
 
 function onTextChange() {
   countEl.textContent = `${input.value.length} / ${input.maxLength}`;
-  if (!input.value.trim()) {
-    clearTimeout(pending);
-    pending = 0;
-    generation++;
-    showIdle();
-    return;
-  }
-  // Gather a burst of keystrokes for 90 ms but never wait for typing to stop (a debounce
-  // would stay silent through fast typing); later keys ride along as pump() reads the text.
-  pending ||= window.setTimeout(() => {
-    pending = 0;
-    void pump();
-  }, 90);
+  readings.update(input.value);
 }
 
 function showReading({ request, response, latency_ms }: EmotionReading) {
   const { emotion, intensity } = response.answers;
   const level = Math.round(intensity.score);
-  setMood(moodOf(emotion.probabilities, intensity.score));
+  const unclear = emotion.choice === 'unclear';
+  setMood(unclear ? NEUTRAL : moodOf(emotion.probabilities, intensity.score));
+  out.note.textContent = unclear
+    ? '맥락이 부족하거나 여러 해석이 가능합니다. 강도는 표시·적용하지 않습니다. 원본 응답은 아래에서 볼 수 있습니다.'
+    : '문장만으로 추정한 반응입니다. 확률은 감정의 혼합 비율이 아니며, 표정 혼합은 시각적 연출입니다.';
   // The summary dot and the intensity bars take the colour of the chosen emotion.
   readoutEl.style.setProperty('--c', EMOTIONS[emotion.choice].color);
   emotionBars.set(emotion.probabilities, emotion.choice);
-  intensityBars.set(intensity.probabilities, String(level));
+  const peakLevel = Object.entries(intensity.probabilities).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  intensityBars.set(unclear ? null : intensity.probabilities, unclear ? null : peakLevel);
 
   const dot = document.createElement('i');
   const name = document.createElement('b');
@@ -256,9 +227,9 @@ function showReading({ request, response, latency_ms }: EmotionReading) {
   name.textContent = EMOTIONS[emotion.choice].ko;
   id.textContent = emotion.choice;
   out.emotion.replaceChildren(dot, name, id);
-  out.intensityBar.style.setProperty('--v', String(intensity.score / 4));
-  out.intensity.textContent = (intensity.score / 4).toFixed(3);
-  out.score.textContent = `${intensity.score.toFixed(3)} → "${INTENSITY_LEVELS[level]}"`;
+  out.intensityBar.style.setProperty('--v', unclear ? '0' : String(intensity.score / 4));
+  out.intensity.textContent = unclear ? '–' : (intensity.score / 4).toFixed(3);
+  out.score.textContent = unclear ? '판단 보류' : `${intensity.score.toFixed(3)} → "${INTENSITY_LEVELS[level]}"`;
   out.confidence.textContent = `감정 ${emotion.confidence.toFixed(3)}\n강도 ${intensity.confidence.toFixed(3)}`;
   out.latency.textContent = `${latency_ms}ms`;
   out.tokens.textContent = String(response.usage.input_tokens);
@@ -274,7 +245,10 @@ function showIdle() {
   intensityBars.set(null, null);
   out.emotion.textContent = '–';
   out.intensityBar.style.setProperty('--v', '0');
-  for (const el of [out.intensity, out.score, out.confidence, out.latency, out.tokens]) el.textContent = '–';
+  for (const el of [out.intensity, out.score, out.confidence, out.latency, out.elapsed, out.analyzed, out.tokens]) el.textContent = '–';
+  out.note.textContent = '문장을 입력하면 예상 반응을 보여 줍니다. 실제 수신자의 감정을 측정하는 도구는 아닙니다.';
+  out.rawResponse.textContent = '아직 응답이 없습니다.';
+  out.rawRequest.textContent = '아직 요청이 없습니다.';
   setStatus('idle', '메시지를 기다리는 중');
 }
 
@@ -294,8 +268,8 @@ let typing = 0;
 
 function typeOut(sample: string) {
   clearInterval(typing);
-  generation++;
   input.value = '';
+  onTextChange();
   input.focus();
   const chars = [...sample];
   let shown = 0;
@@ -307,7 +281,7 @@ function typeOut(sample: string) {
 }
 
 const samplesEl = $('#samples');
-for (const sample of SAMPLES) {
+for (const { text: sample } of SAMPLES) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'sample';

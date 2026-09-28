@@ -9,8 +9,10 @@ const ROOT = 'projects';
 export default defineConfig(({ mode }) => {
   // Server code reads the key from process.env, as it does on Vercel; locally .env provides it.
   // Variables without a VITE_ prefix never reach the client bundle.
-  const key = loadEnv(mode, process.cwd(), '').TYPESAFE_AI_API;
+  const env = loadEnv(mode, process.cwd(), '');
+  const key = env.TYPESAFE_AI_API;
   if (key) process.env.TYPESAFE_AI_API ??= key;
+  if (env.TYPESAFE_MODEL) process.env.TYPESAFE_MODEL ??= env.TYPESAFE_MODEL;
   const pages = Object.fromEntries(findProjects(ROOT).map(({ slug }) => [slug, resolve(ROOT, slug, 'index.html')]));
 
   return {

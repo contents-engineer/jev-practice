@@ -35,6 +35,13 @@ export interface Emotion {
 }
 
 export const EMOTIONS: Record<EmotionId, Emotion> = {
+  unclear: {
+    ko: '판단 어려움',
+    color: '#9ca3af',
+    face: {},
+    head: [0, 0, 0],
+    gaze: [0, 0],
+  },
   neutral: {
     ko: '중립',
     color: '#9ca3af',
@@ -127,7 +134,7 @@ export const EMOTIONS: Record<EmotionId, Emotion> = {
 
 /** Display order, as in the original demo's readout. */
 export const EMOTION_IDS: readonly EmotionId[] = [
-  'neutral', 'happy', 'sad', 'angry', 'surprised', 'fear', 'disgust', 'contempt',
+  'neutral', 'happy', 'sad', 'angry', 'surprised', 'fear', 'disgust', 'contempt', 'unclear',
 ];
 
 /** Names for Jev's intensity levels 0–4. */
@@ -145,6 +152,7 @@ export const NEUTRAL: Mood = {
 };
 
 export function moodOf(probabilities: Record<EmotionId, number>, score: number): Mood {
+  // Artistic interpolation, NOT measured proportions of simultaneous emotions.
   // Squaring lets the leading emotion dominate while close calls still blend.
   let total = 0;
   for (const id of EMOTION_IDS) total += probabilities[id] ** 2;

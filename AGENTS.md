@@ -24,13 +24,19 @@ Vercel은 이 저장소의 `tsc`(TypeScript 7)로 `api/` 진입점과 그 import
 
 ## 반응하는 얼굴 (emotion-face)
 
-- 감정 id는 `projects/emotion-face/server.ts`의 choice criteria 키에서 나온다(`EmotionId`). id를 바꾸면 `emotions.ts`의 `EMOTIONS`(id마다 색, 한국어 이름, 표정 프리셋)와 `main.ts`의 `SAMPLES`를 함께 맞춘다.
+- 감정 id는 `projects/emotion-face/server.ts`의 choice criteria 키에서 나온다(`EmotionId`). 감정 8종과 판단 불가 결과 `unclear`를 구분한다. id를 바꾸면 `emotions.ts`의 `EMOTIONS`·`EMOTION_IDS`, `samples.ts`의 예시와 평가 데이터를 함께 맞춘다.
 - 표정 프리셋의 키는 ARKit blendshape 이름이고(`ARKIT_BLENDSHAPES`, facecap.glb와 같은 순서), 값은 강도 1일 때의 가중치다.
-- Jev 질문을 설계하거나 고칠 때는 `.agents/skills/typesafe-ai/SKILL.md`와 live 문서(https://docs.typesafe.ai/llms.txt)를 따른다. criteria는 영어로 쓰고, 헷갈리는 이웃 감정과의 경계는 `what`/`not_for`에 적는다. 바꾼 뒤에는 실제 Jev 호출로 `SAMPLES`의 문장마다 의도한 감정이 나오는지 확인한다.
-- 입력 루프: 요청은 한 번에 하나만 보내고, 첫 키 입력 후 90ms 동안의 입력을 묶는다(타이머는 묶음마다 한 번만 건다). 그래서 빠르게 타이핑하는 중에도 요청이 이어진다. `generation`이 바뀐 뒤 도착한 답은 버린다.
+- Jev 질문을 설계하거나 고칠 때는 `.agents/skills/typesafe-ai/SKILL.md`와 live 문서(https://docs.typesafe.ai/llms.txt)를 따른다. criteria는 영어로 쓰고, 헷갈리는 이웃 감정과의 경계는 `what`/`not_for`에 적는다. 같은 요청의 질문은 독립적이므로 다른 답을 가리키는 “that emotion” 같은 표현은 쓰지 않는다. 강도는 전반적인 감정 반응을 묻는다. 실제 관계·이전 대화가 없으면 만들어 내지 않도록 한다.
+- `neutral`은 이해 가능한 무감정 반응, `unclear`는 맥락 부족·미완성·상충하는 해석이다. `unclear`일 때 표정과 강도 요약·막대에는 강도를 적용하지 않고 원본 응답은 보존한다. 낮은 confidence의 임의 임계값을 정확도 검증 없이 추가하지 않는다.
+- Choice 확률의 제곱·정규화는 표정 연출이다. 실제 복합 감정 비율로 설명하지 않는다. 복합 감정 측정 기능을 만들 경우 감정별 독립 Score와 별도 평가가 필요하다.
+- 입력 루프는 `reading-loop.ts`에서 관리한다. 한 번에 요청 하나, 최초 90ms 묶음, 대기 중 최신 입력 하나만 유지한다. 모든 정규화된 텍스트 변경마다 revision을 올리고 이전 응답·오류를 버린다. 뒤에 부정 표현을 붙인 경우와 비웠다가 같은 문장을 다시 쓴 경우도 예외가 아니다. 입력이 계속 바뀌면 표정 적용이 기다릴 수 있다. 새 입력에서는 얼굴을 기본 자세로 두고, 패널의 마지막 결과는 분석한 문장·이전 결과 안내와 함께 표시한다.
+- 지연 시간: `latency_ms`는 서버 SDK 구간(재시도 포함), 브라우저의 입력→결과 수신은 대기·HTTP·파싱 포함이다. 렌더링 완료 시간으로 설명하지 않는다. 강도 단계 요약은 반올림 기대값, 막대 강조는 최대 확률 단계다.
+- 모델은 서버 `TYPESAFE_MODEL`로 고정할 수 있고 기본값은 `jev-latest`다. 모델/질문 변경 시 평가 보고서의 실제 버전·질문과 결과를 함께 비교한다.
+- `server/budget.ts`는 서버 인스턴스별 동시 4개·분당 120개·UTC 일일 2,000개 한도다. 실패한 허용 요청도 집계한다. 메모리 한도를 Vercel 전체의 분산 한도나 금액 상한으로 설명하지 않는다. 브라우저 15초, SDK 시도당 5초·재시도 1회 제한을 유지한다.
 
 ## 검증
 
-- 매번: `npm run typecheck`, `npm run build`.
+- 매번: `npm test`, `npm run typecheck`, `npm run build`.
+- 질문·선택지·모델을 바꿨으면: dev 서버 실행 후 `npm run eval:emotion`으로 `samples.ts`의 모든 예시와 `evals/emotion-cases.json`의 별도 문장을 실제 Jev로 평가한다(과금). 보고서는 `evals/reports/latest.json`에 저장되고 Git에서 제외된다. 불일치·서비스 실패는 종료 코드 1로 구분해 기록한다. 기대값은 미리 정하며, 결과를 맞추기 위해 사후 변경하지 않는다. 작은 회귀 세트 통과를 일반 정확도로 주장하지 않는다.
 - API를 바꿨으면: dev 서버에 `curl -X POST localhost:5173/api/<name>/<route> -H 'Content-Type: application/json' -d '{...}'`를 보내 정상 응답과 400/405를 확인한다.
 - 화면을 바꿨으면: 브라우저에서 샘플 칩을 눌러 패널 값과 표정을 직접 본다. 편집 도중 열려 있던 탭이 HMR 중간 상태로 매 프레임 에러를 내면, dev 서버가 그 로그에 막혀 응답하지 않는다. 그러면 탭을 새로 고치거나 dev 서버를 재시작한다.

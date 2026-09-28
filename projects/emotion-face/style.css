@@ -536,6 +536,13 @@ textarea::placeholder {
   font-weight: 600;
 }
 
+.reading-note {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--muted, #9ca3af);
+  word-break: keep-all;
+}
+
 .meter__note {
   margin: 8px 0 0;
   overflow: hidden;
