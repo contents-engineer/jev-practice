@@ -1,12 +1,7 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
 import { TypeSafeClient } from '@typesafe-ai/sdk';
-import type { Connect, Plugin } from 'vite';
 
-/** A project's server-side handler: the parsed JSON body in, JSON out. */
+/** A server route: the parsed JSON body in, JSON out. */
 export type Route = (body: unknown, jev: TypeSafeClient) => Promise<unknown>;
-
-/** What a project's `server.ts` exports by default; each key is served at `POST /api/<project>/<key>`. */
-export type Routes = Record<string, Route>;
 
 /** Throw from a route to answer with this status instead of 502. */
 export class HttpError extends Error {
@@ -18,58 +13,38 @@ export class HttpError extends Error {
   }
 }
 
+let jev: TypeSafeClient | undefined;
+
 /**
- * Serves every project's routes from the Vite dev/preview server, with one TypeSafe client
- * for all of them, so the API key never reaches the browser.
+ * Wraps a route as a Vercel Function (the `fetch` Web standard export). The Vite dev server
+ * runs the same files, so api/<project>/<route>.ts behaves the same locally and on Vercel,
+ * and the API key only ever lives on the server.
  */
-export function jevApi(apiKey: string | undefined, projects: Record<string, Routes>): Plugin {
-  const jev = apiKey ? new TypeSafeClient({ apiKey }) : undefined;
-
-  const handle: Connect.NextHandleFunction = async (req, res, next) => {
-    // Mounted at /api, so the URL here is /<project>/<route>.
-    const [, project, name] = new URL(req.url ?? '/', 'http://localhost').pathname.split('/');
-    const route = projects[project]?.[name];
-    if (!route) return next();
-    if (req.method !== 'POST') return send(res, 405, { error: 'Use POST' });
-    if (!jev) return send(res, 500, { error: 'TYPESAFE_AI_API is missing from .env' });
-
-    let body: unknown;
-    try {
-      body = JSON.parse(await readBody(req));
-    } catch {
-      return send(res, 400, { error: 'Expected a JSON body' });
-    }
-    try {
-      send(res, 200, await route(body, jev));
-    } catch (err) {
-      if (err instanceof HttpError) return send(res, err.status, { error: err.message });
-      send(res, 502, { error: err instanceof Error ? err.message : 'Jev request failed' });
-    }
-  };
-
+export function serve(route: Route) {
   return {
-    name: 'jev-api',
-    configureServer(server) {
-      server.middlewares.use('/api', handle);
-    },
-    configurePreviewServer(server) {
-      server.middlewares.use('/api', handle);
+    async fetch(request: Request): Promise<Response> {
+      if (request.method !== 'POST') return Response.json({ error: 'Use POST' }, { status: 405 });
+      const apiKey = process.env.TYPESAFE_AI_API;
+      if (!apiKey) {
+        return Response.json(
+          { error: 'TYPESAFE_AI_API is not set (.env locally, Environment Variables on Vercel)' },
+          { status: 500 },
+        );
+      }
+      jev ??= new TypeSafeClient({ apiKey });
+
+      let body: unknown;
+      try {
+        body = await request.json();
+      } catch {
+        return Response.json({ error: 'Expected a JSON body' }, { status: 400 });
+      }
+      try {
+        return Response.json(await route(body, jev));
+      } catch (err) {
+        if (err instanceof HttpError) return Response.json({ error: err.message }, { status: err.status });
+        return Response.json({ error: err instanceof Error ? err.message : 'Jev request failed' }, { status: 502 });
+      }
     },
   };
-}
-
-function send(res: ServerResponse, status: number, body: unknown) {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.end(JSON.stringify(body));
-}
-
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.setEncoding('utf8');
-    req.on('data', (chunk: string) => (body += chunk));
-    req.on('end', () => resolve(body));
-    req.on('error', reject);
-  });
 }

@@ -1,5 +1,5 @@
-import { choice, score, type SystemOneResult } from '@typesafe-ai/sdk';
-import { HttpError, type Routes } from '../../server/api.ts';
+import { choice, score, type SystemOneResult, type TypeSafeClient } from '@typesafe-ai/sdk';
+import { HttpError } from '../../server/api.ts';
 
 const MODEL = 'jev-latest';
 const MAX_CHARS = 2_000;
@@ -67,25 +67,23 @@ export interface EmotionReading {
   latency_ms: number;
 }
 
-export default {
-  /** POST /api/emotion-face/emotion with `{ text }`: how the recipient would feel, and how strongly. */
-  async emotion(body, jev): Promise<EmotionReading> {
-    const text = (body as { text?: unknown } | null)?.text;
-    if (typeof text !== 'string' || !text.trim()) throw new HttpError(400, '"text" must be a non-empty string');
-    if (text.length > MAX_CHARS) throw new HttpError(413, `Messages are limited to ${MAX_CHARS} characters`);
+/** Served at POST /api/emotion-face/emotion with `{ text }`: how the recipient would feel, and how strongly. */
+export async function readEmotion(body: unknown, jev: TypeSafeClient): Promise<EmotionReading> {
+  const text = (body as { text?: unknown } | null)?.text;
+  if (typeof text !== 'string' || !text.trim()) throw new HttpError(400, '"text" must be a non-empty string');
+  if (text.length > MAX_CHARS) throw new HttpError(413, `Messages are limited to ${MAX_CHARS} characters`);
 
-    const state = stateFor(text);
-    const started = performance.now();
-    // Both questions are answered in one parallel pass. One retry at most:
-    // while someone is typing, a late answer is already stale.
-    const response = await jev.systemOne(
-      { model: MODEL, state, questions },
-      { timeout: 5_000, retry: { maxRetries: 1 } },
-    );
-    return {
-      request: { model: MODEL, state, questions },
-      response,
-      latency_ms: Math.round(performance.now() - started),
-    };
-  },
-} satisfies Routes;
+  const state = stateFor(text);
+  const started = performance.now();
+  // Both questions are answered in one parallel pass. One retry at most:
+  // while someone is typing, a late answer is already stale.
+  const response = await jev.systemOne(
+    { model: MODEL, state, questions },
+    { timeout: 5_000, retry: { maxRetries: 1 } },
+  );
+  return {
+    request: { model: MODEL, state, questions },
+    response,
+    latency_ms: Math.round(performance.now() - started),
+  };
+}
