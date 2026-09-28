@@ -1,28 +1,4 @@
-import { ARKIT_BLENDSHAPES, INTENSITY_LEVELS } from './emotions';
-
-/** Jev's Score answer: the probability of each level, and the expected score as a marker. */
-export class IntensityGauge {
-  private readonly bars: HTMLElement[];
-  private readonly marker: HTMLElement;
-
-  constructor(root: HTMLElement) {
-    root.innerHTML =
-      INTENSITY_LEVELS.map(
-        (level, i) =>
-          `<div class="gauge__col"><div class="gauge__track"><i class="gauge__bar"></i></div>` +
-          `<span class="gauge__level"><b>${i}</b>${level}</span></div>`,
-      ).join('') + '<i class="gauge__marker" hidden></i>';
-    this.bars = [...root.querySelectorAll<HTMLElement>('.gauge__bar')];
-    this.marker = root.querySelector('.gauge__marker')!;
-  }
-
-  set(score: number | null, probabilities?: Record<string, number>) {
-    this.bars.forEach((bar, i) => bar.style.setProperty('--p', String(probabilities?.[i] ?? 0)));
-    this.marker.hidden = score === null;
-    // Level i is centred at (i + 0.5) / 5 of the width.
-    if (score !== null) this.marker.style.left = `${((score + 0.5) / INTENSITY_LEVELS.length) * 100}%`;
-  }
-}
+import { ARKIT_BLENDSHAPES } from './emotions';
 
 /** The 52 weights actually on the mesh this frame. */
 export class ShapeMeter {

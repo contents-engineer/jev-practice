@@ -4,41 +4,42 @@ import { HttpError } from '../../server/api.ts';
 const MODEL = 'jev-latest';
 const MAX_CHARS = 2_000;
 
-// Plutchik's eight basic emotions. `what` / `not_for` sharpen the borders between
-// neighbours Jev would otherwise blur (joy vs trust, surprise vs anticipation, ...).
+// Neutral plus Ekman's seven basic facial expressions, the set face models are built around.
+// `what` / `not_for` sharpen the borders between neighbours Jev would otherwise blur
+// (happy vs surprised, disgust vs contempt, ...).
 export const questions = {
   emotion: choice('When the recipient reads this message, which one emotion would they most likely feel?', {
-    joy: {
-      what: 'Happiness, delight, pride or relief: good news, celebration, love, praise',
-      not_for: 'Calm reassurance without real delight (trust)',
+    neutral: {
+      what: 'No real emotional reaction: routine, factual or ambiguous messages such as logistics, scheduling or small talk',
+      not_for: 'Messages that carry a clear feeling, even a mild one',
     },
-    trust: {
-      what: 'Feeling safe, supported and able to rely on the sender: reassurance, loyalty, kind support, commitment',
-      not_for: 'Excited happiness (joy)',
+    happy: {
+      what: 'Happiness, joy, delight, gratitude or relief; feeling loved, praised or supported',
+      not_for: 'Being caught off guard before knowing whether news is good (surprised)',
+    },
+    sad: {
+      what: 'Sadness, hurt, disappointment, loneliness, grief or regret: loss, rejection, bad news that already happened',
+      not_for: 'Hostile blame that provokes the recipient (angry)',
+    },
+    angry: {
+      what: 'Anger, irritation or frustration: feeling attacked, insulted, blamed, lied to or treated unfairly',
+      not_for: 'Being hurt without hostility (sad)',
+    },
+    surprised: {
+      what: 'Surprise or astonishment: being caught off guard by something unexpected, good or bad',
+      not_for: 'Clear good news whose main effect is delight (happy)',
     },
     fear: {
-      what: 'Feeling threatened, anxious or worried: danger, warnings, threats, something bad that might happen',
-      not_for: 'Being startled by something unexpected but harmless (surprise)',
-    },
-    surprise: {
-      what: 'Being caught off guard or astonished by something unexpected, good or bad',
-      not_for: 'Looking forward to something that has not been revealed yet (anticipation)',
-    },
-    sadness: {
-      what: 'Feeling hurt, let down, lonely or grieving: loss, rejection, disappointment, bad news that already happened',
-      not_for: 'Hostile blame that provokes the recipient (anger)',
+      what: 'Fear, anxiety or worry: danger, threats, warnings, something bad that might happen',
+      not_for: 'Being startled by something unexpected but harmless (surprised)',
     },
     disgust: {
-      what: 'Revulsion or strong disapproval: something gross, vile, offensive or morally repugnant',
-      not_for: 'Hostility aimed at the recipient (anger)',
+      what: 'Disgust or revulsion: something gross, dirty, vile or physically repulsive',
+      not_for: 'Looking down on the sender for their attitude or behavior (contempt)',
     },
-    anger: {
-      what: 'Feeling attacked, insulted, blamed, treated unfairly or provoked',
-      not_for: 'Being hurt without hostility (sadness)',
-    },
-    anticipation: {
-      what: 'Eager expectation or curiosity about something still to come: teasers, plans, upcoming events, cliffhangers',
-      not_for: 'Reacting to something that has just happened (surprise)',
+    contempt: {
+      what: 'Contempt or disdain toward the sender: smug bragging, arrogance, hypocrisy or behavior the recipient looks down on',
+      not_for: 'Physical revulsion at something gross (disgust)',
     },
   }),
   // Levels describe situations rather than bare degrees, as the Score docs recommend.

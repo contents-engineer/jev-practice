@@ -2,22 +2,23 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { EmotionReading } from './server';
-import { EMOTIONS, EMOTION_IDS, INTENSITY_LEVELS, NEUTRAL, moodOf, plutchikWord, type Mood } from './emotions';
+import { ProbabilityBars } from './bars';
+import { EMOTIONS, EMOTION_IDS, INTENSITY_LEVELS, NEUTRAL, moodOf, type Mood } from './emotions';
 import { Face } from './face';
-import { IntensityGauge, ShapeMeter } from './meters';
-import { Wheel } from './wheel';
+import { ShapeMeter } from './meters';
 
+// One per emotion (each checked against Jev), then two in Korean.
 const SAMPLES = [
+  'Meeting moved to 3pm. Room B.',
   'We got the apartment!! Moving in next month 🎉',
-  "Take your time. I've got everything covered here, I promise.",
-  "Don't open the door. Someone has been following me all night.",
-  "Wait, you're in town?? Since when?!",
   "I'm so sorry. The vet said there's nothing more they can do.",
-  'There was a hair baked into the bread you gave me. Gross.',
   'You read my messages behind my back? Unbelievable.',
-  "Tomorrow I'll finally tell you what I've been planning…",
-  '걱정하지 마, 내가 끝까지 옆에 있을게',
-  '너 또 내 물건 허락 없이 가져갔지? 진짜 화난다',
+  "Wait, you're in town?? Since when?!",
+  "Don't open the door. Someone has been following me all night.",
+  'Found a dead mouse in the rice bag we have been cooking from all week 🤢',
+  'I cheated on the final and still got an A. Studying is for losers.',
+  '생일 축하해! 네 덕분에 올해 정말 행복했어',
+  '시험 커닝해서 A 받았어ㅋㅋ 공부하는 애들은 바보지',
 ];
 
 const $ = <T extends Element = HTMLElement>(selector: string) => document.querySelector(selector) as T;
@@ -28,13 +29,29 @@ const input = $<HTMLTextAreaElement>('#message');
 const statusEl = $('#status');
 const statusText = $('#status-text');
 const countEl = $('#count');
-const verdictEl = $('#verdict');
-const verdictSub = $('#verdict-sub');
-const scoreEl = $('#score');
-const rawEl = $('#raw');
+const readoutEl = $('#readout');
+const out = {
+  emotion: $('#sum-emotion'),
+  intensityBar: $('#sum-intensity-bar'),
+  intensity: $('#sum-intensity'),
+  score: $('#sum-score'),
+  confidence: $('#meta-confidence'),
+  latency: $('#meta-latency'),
+  tokens: $('#meta-tokens'),
+  requests: $('#meta-requests'),
+  failures: $('#meta-failures'),
+  rawResponse: $('#raw-response'),
+  rawRequest: $('#raw-request'),
+};
 
-const wheel = new Wheel($<SVGSVGElement>('#wheel'));
-const gauge = new IntensityGauge($('#gauge'));
+const emotionBars = new ProbabilityBars(
+  $('#emotion-bars'),
+  EMOTION_IDS.map((id) => ({ key: id, label: id, color: EMOTIONS[id].color })),
+);
+const intensityBars = new ProbabilityBars(
+  $('#intensity-bars'),
+  INTENSITY_LEVELS.map((name, level) => ({ key: String(level), label: `${level} · ${name}` })),
+);
 const shapes = new ShapeMeter($('#shapes'), $('#top-shapes'));
 
 // ── Stage ────────────────────────────────────────────────────────────────
@@ -154,22 +171,31 @@ function updateMood(dt: number) {
 
 // ── Reading the message with Jev ─────────────────────────────────────────
 
+/** Session totals for the meta block. */
+const tally = { requests: 0, failures: 0 };
+
 async function fetchReading(text: string): Promise<EmotionReading> {
-  const res = await fetch('/api/emotion-face/emotion', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status})`);
-  return body;
+  out.requests.textContent = String(++tally.requests);
+  try {
+    const res = await fetch('/api/emotion-face/emotion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status})`);
+    return body;
+  } catch (err) {
+    out.failures.textContent = String(++tally.failures);
+    throw err;
+  }
 }
 
 /** Bumped whenever the text is replaced wholesale, so answers for the old text are dropped. */
 let generation = 0;
 let busy = false;
 let dirty = false;
-let debounce = 0;
+let pending = 0;
 
 /**
  * One request in flight at a time. Keystrokes that land meanwhile mark the text dirty,
@@ -200,41 +226,55 @@ async function pump() {
 
 function onTextChange() {
   countEl.textContent = `${input.value.length} / ${input.maxLength}`;
-  clearTimeout(debounce);
   if (!input.value.trim()) {
+    clearTimeout(pending);
+    pending = 0;
     generation++;
     showIdle();
     return;
   }
-  debounce = window.setTimeout(pump, 90);
+  // Gather a burst of keystrokes for 90 ms but never wait for typing to stop (a debounce
+  // would stay silent through fast typing); later keys ride along as pump() reads the text.
+  pending ||= window.setTimeout(() => {
+    pending = 0;
+    void pump();
+  }, 90);
 }
 
 function showReading({ request, response, latency_ms }: EmotionReading) {
   const { emotion, intensity } = response.answers;
+  const level = Math.round(intensity.score);
   setMood(moodOf(emotion.probabilities, intensity.score));
-  wheel.set(emotion.probabilities, emotion.choice);
-  gauge.set(intensity.score, intensity.probabilities);
+  // The summary dot and the intensity bars take the colour of the chosen emotion.
+  readoutEl.style.setProperty('--c', EMOTIONS[emotion.choice].color);
+  emotionBars.set(emotion.probabilities, emotion.choice);
+  intensityBars.set(intensity.probabilities, String(level));
 
-  verdictEl.textContent = EMOTIONS[emotion.choice].label;
-  verdictEl.style.setProperty('--c', EMOTIONS[emotion.choice].color);
-  verdictSub.textContent = [
-    plutchikWord(emotion.choice, intensity.score),
-    INTENSITY_LEVELS[Math.round(intensity.score)],
-    `confidence ${emotion.confidence.toFixed(2)}`,
-  ].join(' · ');
-  scoreEl.textContent = `${intensity.score.toFixed(2)} / 4 · conf ${intensity.confidence.toFixed(2)}`;
+  const dot = document.createElement('i');
+  const name = document.createElement('b');
+  const ko = document.createElement('span');
+  name.textContent = `"${emotion.choice}"`;
+  ko.textContent = EMOTIONS[emotion.choice].ko;
+  out.emotion.replaceChildren(dot, name, ko);
+  out.intensityBar.style.setProperty('--v', String(intensity.score / 4));
+  out.intensity.textContent = (intensity.score / 4).toFixed(3);
+  out.score.textContent = `${intensity.score.toFixed(3)} → "${INTENSITY_LEVELS[level]}"`;
+  out.confidence.textContent = `emotion=${emotion.confidence.toFixed(3)}\nintensity=${intensity.confidence.toFixed(3)}`;
+  out.latency.textContent = `${latency_ms} ms`;
+  out.tokens.textContent = String(response.usage.input_tokens);
+  out.rawResponse.textContent = JSON.stringify(response, null, 2);
+  out.rawRequest.textContent = JSON.stringify(request, null, 2);
   setStatus('ok', `${response.model} · ${latency_ms} ms · ${response.usage.input_tokens} tokens`);
-  rawEl.textContent = JSON.stringify({ response, request }, null, 2);
 }
 
 function showIdle() {
   setMood(NEUTRAL);
-  wheel.set(null, null);
-  gauge.set(null);
-  verdictEl.textContent = '—';
-  verdictEl.style.removeProperty('--c');
-  verdictSub.textContent = 'Start typing a message';
-  scoreEl.textContent = '–';
+  readoutEl.style.removeProperty('--c');
+  emotionBars.set(null, null);
+  intensityBars.set(null, null);
+  out.emotion.textContent = '–';
+  out.intensityBar.style.setProperty('--v', '0');
+  for (const el of [out.intensity, out.score, out.confidence, out.latency, out.tokens]) el.textContent = '–';
   setStatus('idle', 'Waiting for your message');
 }
 
@@ -292,7 +332,6 @@ renderer.setAnimationLoop((now: number) => {
   last = now;
   const time = now / 1000;
   face?.update(dt, time);
-  wheel.update(dt);
   if (face) shapes.update(face.weights, time);
   updateMood(dt);
   controls.update();

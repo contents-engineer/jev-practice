@@ -52,28 +52,55 @@
         </div>
       </section>
 
-      <aside class="readout" aria-label="Jev's reading">
+      <aside class="readout" id="readout" aria-label="Jev's reading">
+        <dl class="kv">
+          <dt>emotion</dt>
+          <dd class="kv__emotion" id="sum-emotion" aria-live="polite">–</dd>
+          <dt>intensity</dt>
+          <dd class="kv__bar"><span class="bar" id="sum-intensity-bar"><i></i></span><span class="num" id="sum-intensity">–</span></dd>
+          <dt class="kv__dim">score (0–4)</dt>
+          <dd id="sum-score">–</dd>
+        </dl>
+
         <section>
-          <p class="label">The recipient would feel</p>
-          <h2 class="verdict" id="verdict" aria-live="polite">—</h2>
-          <p class="verdict__sub" id="verdict-sub"></p>
+          <h2 class="label">emotion.probabilities</h2>
+          <ol class="bars bars--dots" id="emotion-bars"></ol>
         </section>
-        <figure class="wheel">
-          <svg id="wheel" viewBox="-172 -142 344 288" role="img" aria-label="Probability Jev gives each of the eight emotions"></svg>
-          <figcaption class="label">Choice · petal area = probability</figcaption>
-        </figure>
-        <section class="meter">
-          <header><span class="label">Score · intensity</span><span class="num" id="score">–</span></header>
-          <div class="gauge" id="gauge"></div>
+
+        <section>
+          <h2 class="label">intensity.probabilities</h2>
+          <ol class="bars" id="intensity-bars"></ol>
         </section>
-        <section class="meter">
-          <header><span class="label">52 ARKit blendshapes</span></header>
+
+        <section>
+          <h2 class="label">meta</h2>
+          <dl class="kv">
+            <dt>confidence</dt>
+            <dd id="meta-confidence">–</dd>
+            <dt>latency</dt>
+            <dd id="meta-latency">–</dd>
+            <dt>input tokens</dt>
+            <dd id="meta-tokens">–</dd>
+            <dt>requests</dt>
+            <dd id="meta-requests">0</dd>
+            <dt>failures</dt>
+            <dd id="meta-failures">0</dd>
+          </dl>
+        </section>
+
+        <section>
+          <h2 class="label">52 ARKit blendshapes</h2>
           <div class="shapes" id="shapes"></div>
           <p class="meter__note" id="top-shapes"></p>
         </section>
+
         <details class="raw">
-          <summary>Raw Jev request &amp; response</summary>
-          <pre id="raw">Nothing sent yet.</pre>
+          <summary>원본 응답 JSON</summary>
+          <pre id="raw-response">아직 응답이 없습니다.</pre>
+        </details>
+        <details class="raw">
+          <summary>요청 JSON</summary>
+          <pre id="raw-request">아직 요청이 없습니다.</pre>
         </details>
       </aside>
 
