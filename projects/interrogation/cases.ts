@@ -9,13 +9,14 @@ export type Move =
   | 'present_evidence'
   | 'bluff'
   | 'accuse'
+  | 'demand'
   | 'threaten'
   | 'minimize'
   | 'off_topic'
   | 'unclear';
 
 export const MOVES: readonly Move[] = [
-  'rapport', 'open_question', 'probe', 'present_evidence', 'bluff', 'accuse', 'threaten', 'minimize', 'off_topic', 'unclear',
+  'rapport', 'open_question', 'probe', 'present_evidence', 'bluff', 'accuse', 'demand', 'threaten', 'minimize', 'off_topic', 'unclear',
 ];
 
 /** Korean label and share emoji per move. */
@@ -26,6 +27,7 @@ export const MOVE_META: Record<Move, { ko: string; emoji: string; hint: string }
   present_evidence: { ko: '증거 제시', emoji: '📄', hint: '사건 파일의 증거를 들이밈' },
   bluff: { ko: '허세', emoji: '🎭', hint: '없는 증거·목격자를 지어냄' },
   accuse: { ko: '추궁', emoji: '👉', hint: '증거 없이 범행·거짓말 단정' },
+  demand: { ko: '자백 요구', emoji: '✊', hint: '그만 둘러대고 사실대로 말하라는 요구' },
   threaten: { ko: '위협', emoji: '💢', hint: '처벌·불이익으로 압박' },
   minimize: { ko: '최소화', emoji: '🕊️', hint: '이해할 만한 동기·가벼운 버전 제시' },
   off_topic: { ko: '무관', emoji: '💤', hint: '사건과 상관없는 말' },
@@ -33,7 +35,7 @@ export const MOVE_META: Record<Move, { ko: string; emoji: string; hint: string }
 };
 
 /** The suspect's composure, derived from the meters by the engine. */
-export type Tier = 'calm' | 'open' | 'nervous' | 'defensive' | 'shaken' | 'broken';
+export type Tier = 'calm' | 'open' | 'nervous' | 'defensive' | 'shaken' | 'breaking' | 'broken';
 
 export const TIER_META: Record<Tier, { ko: string }> = {
   calm: { ko: '침착' },
@@ -41,6 +43,7 @@ export const TIER_META: Record<Tier, { ko: string }> = {
   nervous: { ko: '불안' },
   defensive: { ko: '방어적' },
   shaken: { ko: '동요' },
+  breaking: { ko: '무너지기 직전' },
   broken: { ko: '무너짐' },
 };
 
@@ -57,7 +60,7 @@ export interface Topic {
   statement: string;
   /** The same account in English, for the state Jev sees. */
   statement_en: string;
-  /** Asked again: by composure. Missing tiers fall back to calm. */
+  /** Asked again: by composure. Missing tiers fall back to shaken, then calm. */
   pressed: Partial<Record<Tier, string[]>>;
 }
 
@@ -123,7 +126,8 @@ export interface CaseFile {
   };
 }
 
-// ── Generic replies: move × composure. Missing tiers fall back to calm. ──────
+// ── Generic replies: move × composure. Missing tiers fall back to calm; `breaking`
+// (story broken, pressure high, no closing move yet) falls back to shaken first. ──
 
 export const GENERIC_LINES: Record<Move, Partial<Record<Tier, string[]>>> = {
   rapport: {
@@ -137,18 +141,21 @@ export const GENERIC_LINES: Record<Move, Partial<Record<Tier, string[]>>> = {
     calm: ['뭘 말씀드려야 하죠? 아는 건 다 말했는데요.', '처음부터요? 신고할 때 다 말했잖아요.'],
     nervous: ['…어디서부터 말해야 할지 모르겠어요.'],
     shaken: ['…말해도 안 믿으실 거잖아요.'],
+    breaking: ['…(한참 말이 없다) 뭘 더 물어보시려고요. …다 아시잖아요.', '…처음부터요? …이제 와서 그게 무슨 소용이에요.'],
     defensive: ['진술서 있잖아요. 그거 읽으세요.'],
   },
   probe: {
     calm: ['그건… 잘 기억이 안 나요. 정신이 없었어요.', '정확히는 모르겠어요. 대충 그 정도였어요.'],
     nervous: ['그렇게 세세한 건… 기억 안 나요. 정말이에요.'],
     shaken: ['모르겠어요… 기억이 안 나요. 안 난다고요.'],
+    breaking: ['…(손이 떨린다) 그런 건… 이제 중요하지 않잖아요.', '…모르겠어요. 정말 모르겠어요. …형사님, 저 어떻게 되는 거예요?'],
     defensive: ['그게 왜 중요하죠? 범인이나 잡으세요.'],
   },
   present_evidence: {
     calm: ['무슨 증거요? 보여 주세요.', '증거가 있으면 꺼내 보시죠.'],
     nervous: ['…뭐요? 뭐가 있는데요?'],
     shaken: ['…뭘 가지고 계신 거예요? 말해 주세요.'],
+    breaking: ['…더 있어요? …됐어요. 그만 보여 주세요.'],
     defensive: ['있으면 보여 주고, 없으면 그만하세요.'],
   },
   // The engine reads shaken lines when the bluff lands and calm/defensive lines when it is called.
@@ -163,6 +170,13 @@ export const GENERIC_LINES: Record<Move, Partial<Record<Tier, string[]>>> = {
     nervous: ['아니라니까요! 몇 번을 말해요!', '저 아니에요. 진짜 아니에요.'],
     shaken: ['…아니에요. …아니라고요. (목소리가 갈라진다)'],
     defensive: ['그렇게 정해 놓고 물어보시면 뭐 하러 물어봐요.', '증거 없이 사람 몰지 마세요.'],
+  },
+  demand: {
+    calm: ['말할 게 없어요. 저는 아무것도 안 했어요.', '사실대로 말했잖아요. 뭘 더 말하라는 거예요.'],
+    open: ['…형사님까지 그러시면… 저 정말 아니에요.'],
+    nervous: ['다 말했다고요! 뭘 더요!', '…사실이에요. 사실이라고요.'],
+    shaken: ['…(입술을 깨문다) 말할 게… 없어요.'],
+    defensive: ['진술 거부하겠습니다.', '변호사 없이는 더 말 안 해요.'],
   },
   threaten: {
     calm: ['협박하시는 거예요? 그럼 저도 변호사 부를게요.', '그렇게 나오시면 더 할 말 없어요.'],
@@ -182,12 +196,14 @@ export const GENERIC_LINES: Record<Move, Partial<Record<Tier, string[]>>> = {
     calm: ['…네? 무슨 말씀이신지.', '지금 그게 무슨 상관이죠?'],
     nervous: ['…네?', '(멍하니 형사를 본다)'],
     shaken: ['…'],
+    breaking: ['…(대답이 없다. 형사를 보지 않는다)', '…네? …아, 네.'],
     defensive: ['장난하세요?'],
   },
   unclear: {
     calm: ['…뭐라고요? 다시 말씀해 주세요.', '말씀이 끊긴 것 같은데요.'],
     nervous: ['…네? 잘 못 들었어요.'],
     shaken: ['…'],
+    breaking: ['…(고개를 든다) …뭐라고요?'],
     defensive: ['똑바로 말씀하세요.'],
   },
 };
@@ -222,6 +238,7 @@ const convenience: CaseFile = {
     '먼저 그날 밤 이야기를 시키세요. 진술이 나와야 증거로 깰 수 있습니다.',
     '증거는 이름을 불러 제시하세요. "CCTV에 1시 40분에…"처럼요.',
     '협박이나 "자백하면 봐준다"는 약속은 자백을 무효로 만듭니다.',
+    '이야기가 무너지면 캐묻지 말고 자백을 요구하세요. 질문만으로는 자백이 나오지 않습니다.',
   ],
   topics: [
     {

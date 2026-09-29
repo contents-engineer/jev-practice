@@ -40,6 +40,7 @@ Vercel은 이 저장소의 `tsc`(TypeScript 7)로 `api/` 진입점과 그 import
 - Jev 질문 7개는 `server.ts`의 `questionsFor()`가 사건 데이터로 만든다. 행동(`move`) 기준의 `not_for`에 이웃 행동과의 경계를 적고, 예시는 한국어로 둔다. 화제·증거 선택지는 `cases.ts`의 `examples`에서 나오므로 사건을 추가하면 예시도 같이 쓴다.
 - **증거 id는 `move === 'present_evidence'`일 때만 소비한다.** Jev는 화제를 묻는 말에도 관련 증거 id를 고르므로, 행동으로 가리지 않으면 진술 전 증거 제시로 오판돼 "진술 먼저, 증거 나중" 루프가 깨진다. 판독 칩도 같은 규칙으로 증거를 표시한다.
 - 사건 데이터 규약(`CaseFile`): 화제마다 `statement`(첫 진술, 거짓말)와 `statement_en`(state용), 증거마다 `breaks`(깨는 화제 id 또는 null), `crack`·`adapt`·`repeat` 대사, 무관한 증거는 `deflect`. `adapted_statement_en`은 진술 전 제시로 바뀐 이야기를 state에 넣는 데 쓴다. `cracksNeeded`는 깨는 증거가 있는 화제 수를 넘지 않는다. 무결성 테스트가 이 규약을 검사한다.
+- 자백은 **마무리 행동**으로만 나온다. 모순이 채워지고 압박이 `BREAK_PRESSURE`(75)를 넘으면 `breaking` 상태(대사·표정·수사 메모로 신호)이고, `CLOSERS`(자백 요구·추궁·위협·최소화·라포), 마지막 모순, 통한 허세만 자백을 끌어낸다. 질문·무관한 말로 자백이 나오게 바꾸지 않는다. 마음 열기 경로는 라포·최소화가 마무리다.
 - 강압 규칙(적대성 3단계·거짓 약속 → 자백 무효)은 「!!!」로 자백을 받아내던 원작 게임을 뒤집는 핵심이다. 임계값(`hostilityLevel` 3 판정에 3단계 확률 0.5, noul 0.6)을 완화하려면 평가 결과로 근거를 남긴다.
 - 용의자 대사는 생성하지 않고 `cases.ts`에서 고른다(엔딩 → 증거 경로 → 화제 경로 → 일반 대사 순). 새 대사는 tier별 배열에 추가하고, 없는 tier는 `calm`으로 대체된다.
 - 얼굴은 `../emotion-face/face`와 `../emotion-face/emotions`를 import해 재사용하고, `director.ts`가 tier·이벤트를 Mood로 바꾼다. 감정 프리셋을 바꾸면 두 페이지에 모두 영향이 있다.

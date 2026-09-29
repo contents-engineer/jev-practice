@@ -5,7 +5,7 @@ import { Face } from '../emotion-face/face';
 import type { Mood } from '../emotion-face/emotions';
 import { CASES, MOVES, MOVE_META, TIER_META, caseById, type CaseFile, type Tier } from './cases';
 import { flashForEvents, moodForTier } from './director';
-import { EVENT_META, OUTCOME_KO, applyTurn, newGame, shareText, tierOf, type GameState, type Grade, type TurnRecord } from './engine';
+import { EVENT_META, OUTCOME_KO, applyTurn, hintFor, isBreaking, newGame, shareText, tierOf, type GameState, type Grade, type TurnRecord } from './engine';
 import type { TurnReading } from './server';
 
 const $ = <T extends Element = HTMLElement>(selector: string) => document.querySelector(selector) as T;
@@ -35,6 +35,7 @@ const out = {
   fileSuspect: $('#file-suspect'),
   fileBrief: $('#file-brief'),
   fileTips: $('#file-tips'),
+  hint: $('#hint'),
   evidence: $('#evidence'),
   notes: $('#notes'),
   note: $('#reading-note'),
@@ -192,7 +193,7 @@ function drawEcg(now: number) {
 const BEST_KEY = 'jev-lab:interrogation:best';
 const GRADE_ORDER: Grade[] = ['S', 'A', 'B', 'C', 'D', 'E', 'F'];
 const GRADE_NOTE: Record<Grade, string> = {
-  S: '완벽한 취조. 진술을 받고, 증거로 찔렀다.',
+  S: '완벽한 취조. 진술을 받고, 증거로 찌르고, 마무리했다.',
   A: '깔끔했다. 한두 마디만 아꼈어도 S.',
   B: '자백은 받았지만 길었다.',
   C: '턱걸이. 허세나 폭언이 있었거나 너무 오래 걸렸다.',
@@ -326,8 +327,9 @@ function renderState(record: TurnRecord | null) {
     }),
   );
   out.turns.textContent = `${Math.max(0, file.maxTurns - state.turn)} / ${file.maxTurns}`;
-  const tier: Tier = record?.tier ?? tierOf(m);
+  const tier: Tier = record?.tier ?? tierOf(m, isBreaking(state, file));
   out.plateTier.textContent = `${TIER_META[tier].ko} · ${tier}`;
+  out.hint.textContent = hintFor(state, file);
 
   for (const card of out.evidence.querySelectorAll<HTMLButtonElement>('.card')) {
     const id = card.dataset.id!;

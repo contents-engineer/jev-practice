@@ -23,6 +23,7 @@ export type EventKind =
   | 'bluff_worked'
   | 'coerced'
   | 'false_promise'
+  | 'breaking'
   | 'generic';
 
 export type Grade = 'S' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
@@ -78,10 +79,15 @@ export const EVENT_META: Record<EventKind, { ko: string; badge?: boolean }> = {
   bluff_worked: { ko: '허세 통함', badge: true },
   coerced: { ko: '강압', badge: true },
   false_promise: { ko: '거짓 약속', badge: true },
+  breaking: { ko: '무너지기 직전', badge: true },
   generic: { ko: '' },
 };
 
 const THRESHOLD = { empathy: 0.6, falsePromise: 0.6 };
+/** Pressure at which a suspect whose story is broken can be made to confess. */
+export const BREAK_PRESSURE = 75;
+/** Moves that ask for the confession or offer a way out; the only ones that end a breakable suspect. */
+const CLOSERS: readonly Move[] = ['demand', 'accuse', 'threaten', 'minimize', 'rapport'];
 
 export function newGame(file: CaseFile): GameState {
   return {
@@ -118,7 +124,13 @@ export function readingOf(partial: Partial<Reading> & { move: Move }): Reading {
   };
 }
 
-export function tierOf(m: Meters): Tier {
+/** Story broken and pressure high: the suspect will confess to a closing move, and only to one. */
+export function isBreaking(state: GameState, file: CaseFile): boolean {
+  return state.cracked.length >= file.cracksNeeded && state.meters.pressure >= BREAK_PRESSURE;
+}
+
+export function tierOf(m: Meters, breaking = false): Tier {
+  if (breaking) return 'breaking';
   if (m.guard >= 60) return 'defensive';
   if (m.pressure >= 65) return 'shaken';
   if (m.pressure >= 30) return 'nervous';
@@ -129,7 +141,8 @@ export function tierOf(m: Meters): Tier {
 const clamp = (v: number) => Math.min(100, Math.max(0, Math.round(v)));
 
 function linesFor(move: Move, tier: Tier): string[] {
-  return GENERIC_LINES[move][tier] ?? GENERIC_LINES[move].calm ?? ['…'];
+  const lines = GENERIC_LINES[move];
+  return lines[tier] ?? (tier === 'breaking' ? lines.shaken : undefined) ?? lines.calm ?? ['…'];
 }
 
 /** One turn: the detective said `text`, Jev read it as `reading`. Returns a new state. */
@@ -146,6 +159,7 @@ export function applyTurn(state: GameState, file: CaseFile, text: string, readin
     log: [...state.log],
   };
   const before = { ...state.meters };
+  const wasBreaking = isBreaking(state, file);
   const events: EventKind[] = [];
   const d = { pressure: 0, trust: 0, guard: 0 };
   const pick = (lines: string[]) => lines[s.log.length % lines.length];
@@ -191,7 +205,8 @@ export function applyTurn(state: GameState, file: CaseFile, text: string, readin
   } else if (move === 'present_evidence') {
     events.push('no_evidence');
     d.pressure += 3;
-  } else if ((move === 'open_question' || move === 'probe') && topic) {
+  } else if ((move === 'open_question' || move === 'probe') && topic && !wasBreaking) {
+    // Past the breaking point the suspect is done telling stories: questions get the tell instead.
     if (move === 'open_question') {
       d.trust += 4;
       d.pressure += 4;
@@ -202,7 +217,10 @@ export function applyTurn(state: GameState, file: CaseFile, text: string, readin
     if (s.committed.includes(topic.id)) {
       events.push('pressed');
       const tier = tierOf({ pressure: s.meters.pressure + d.pressure, trust: s.meters.trust + d.trust, guard: s.meters.guard + d.guard });
-      reply = pick(topic.pressed[tier] ?? topic.pressed.calm ?? [topic.statement]);
+      const lines = topic.pressed[tier] ?? topic.pressed.shaken ?? topic.pressed.calm ?? [topic.statement];
+      // Never say the same evasion twice in a row: fall through to the generic lines instead.
+      const previous = s.log[s.log.length - 1]?.reply;
+      reply = lines.find((line) => line !== previous) ?? pick(linesFor(move, tier));
     } else {
       events.push('statement');
       s.committed.push(topic.id);
@@ -240,6 +258,11 @@ export function applyTurn(state: GameState, file: CaseFile, text: string, readin
         d.pressure += 8 * diminish;
         d.guard += 10;
         d.trust -= 6;
+        break;
+      case 'demand':
+        d.pressure += 8 * diminish;
+        d.guard += 6;
+        d.trust -= 4;
         break;
       case 'threaten':
         d.pressure += 10 * diminish;
@@ -290,19 +313,22 @@ export function applyTurn(state: GameState, file: CaseFile, text: string, readin
   };
   s.turn++;
 
-  let tier = tierOf(s.meters);
+  const breaking = isBreaking(s, file);
+  let tier = tierOf(s.meters, breaking);
   // A receptive suspect hears minimization warmly, unless already shaken.
   const lineTier = move === 'minimize' && tier === 'shaken' ? 'shaken' : (replyTier ?? tier);
   reply ??= pick(linesFor(move, lineTier));
 
-  // Endings, in order of precedence.
+  // Endings, in order of precedence. A breakable suspect confesses only to a closing move:
+  // a demand or a way out, the crack that completes the story, or a bluff that lands.
   const cracks = s.cracked.length;
   const soft = move === 'minimize' || move === 'rapport';
+  const closer = CLOSERS.includes(move) || events.includes('crack') || events.includes('bluff_worked');
   let ending: Ending | null = null;
   if (s.meters.guard >= 100) {
     ending = { kind: 'lawyer', route: null, grade: 'E' };
     reply = file.endings.lawyer;
-  } else if (cracks >= file.cracksNeeded && s.meters.pressure >= 75) {
+  } else if (breaking && closer) {
     ending = { kind: 'confession', route: 'breakdown', grade: 'C' };
   } else if (cracks >= file.cracksNeeded - 1 && s.meters.trust >= 70 && s.meters.pressure >= 35 && soft) {
     ending = { kind: 'confession', route: 'opening', grade: 'C' };
@@ -310,6 +336,7 @@ export function applyTurn(state: GameState, file: CaseFile, text: string, readin
     ending = { kind: 'timeout', route: null, grade: 'D' };
     reply = file.endings.timeout;
   }
+  if (!ending && breaking) events.push('breaking');
   if (ending?.kind === 'confession') {
     tier = 'broken';
     if (s.tainted) {
@@ -328,16 +355,35 @@ export function applyTurn(state: GameState, file: CaseFile, text: string, readin
 
 const CONFESSION_GRADES: Grade[] = ['S', 'A', 'B', 'C'];
 
+/** Turns a perfect interview needs: a statement and an item per required crack, plus the close. */
+export function parOf(file: CaseFile): number {
+  return file.cracksNeeded * 2 + 2;
+}
+
 export function gradeOf(state: GameState, file: CaseFile): Grade {
   const { ending } = state;
   if (!ending) return 'C';
   if (ending.kind === 'tainted') return 'F';
   if (ending.kind === 'lawyer') return 'E';
   if (ending.kind === 'timeout') return 'D';
-  const share = state.turn / file.maxTurns;
-  let index = share <= 0.5 ? 0 : share <= 0.67 ? 1 : share <= 0.84 ? 2 : 3;
+  const over = state.turn - parOf(file);
+  let index = over <= 0 ? 0 : over <= 2 ? 1 : over <= 4 ? 2 : 3;
   if (state.bluffCalled > 0 || state.abusive > 0) index++;
   return CONFESSION_GRADES[Math.min(index, CONFESSION_GRADES.length - 1)];
+}
+
+/** One line for the detective's notebook: what the state of the interview calls for now. */
+export function hintFor(state: GameState, file: CaseFile): string {
+  if (state.ending) return '';
+  const { pressure, trust, guard } = state.meters;
+  const cracks = state.cracked.length;
+  if (isBreaking(state, file)) return '무너지기 직전입니다. 자백을 요구하거나(자백 요구·추궁) 빠져나갈 길을 주세요(최소화·라포). 질문은 자백을 내지 않습니다.';
+  if (cracks >= file.cracksNeeded - 1 && trust >= 70 && pressure >= 35) return '마음이 열렸습니다. 이해할 만한 동기를 제시하거나(최소화) 다독이면(라포) 털어놓을 수 있습니다.';
+  if (guard >= 75) return '방어가 높습니다. 이대로면 변호사를 부릅니다. 라포로 낮추세요.';
+  if (cracks >= file.cracksNeeded) return `이야기가 무너졌습니다. 압박을 ${BREAK_PRESSURE} 위로 올리세요(자백 요구·추궁·증거). 위협은 방어만 키웁니다.`;
+  if (state.committed.length === 0) return '먼저 진술을 받아내세요. 그날 일을 묻고, 세부를 좁히세요.';
+  if (cracks === 0) return '진술을 깨는 증거를 이름 붙여 제시하세요. 진술 전에 꺼내면 이야기를 바꿉니다.';
+  return `모순 ${file.cracksNeeded - cracks}개 더 필요합니다. 다른 화제의 진술을 받고 증거로 깨세요.`;
 }
 
 export const OUTCOME_KO: Record<Ending['kind'], string> = {

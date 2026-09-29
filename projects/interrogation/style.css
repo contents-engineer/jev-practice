@@ -709,6 +709,30 @@ h1 em {
   justify-self: end;
 }
 
+/* The detective's notebook: one line on what the state of the interview calls for. */
+.memo {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin: 0;
+  padding: 0 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.memo::before {
+  content: '수사 메모';
+  flex: none;
+  font: 400 9.5px/1.6 var(--mono);
+  letter-spacing: 0.06em;
+  color: rgb(var(--lamp));
+}
+
+.memo:empty {
+  display: none;
+}
+
 .talk {
   flex: 1 1 auto;
   display: flex;

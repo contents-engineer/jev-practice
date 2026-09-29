@@ -48,10 +48,11 @@
       <section class="rules" aria-label="이 게임이 읽는 것">
         <h2 class="label">이 게임이 읽는 것</h2>
         <ul class="rules__list">
-          <li><b>행동</b><code>move</code><span>라포 · 열린 질문 · 세부 추궁 · 증거 제시 · 허세 · 추궁 · 위협 · 최소화 · 무관 · 불명확</span></li>
+          <li><b>행동</b><code>move</code><span>라포 · 열린 질문 · 세부 추궁 · 증거 제시 · 허세 · 추궁 · 자백 요구 · 위협 · 최소화 · 무관 · 불명확</span></li>
           <li><b>화제</b><code>topic</code><span>어느 진술을 건드리는가. 진술이 나온 뒤에 증거를 대야 모순이 잡힙니다</span></li>
           <li><b>증거</b><code>evidence</code><span>사건 파일의 어떤 항목을 이름 붙여 말했는가. 파일에 없는 증거는 허세로 읽힙니다</span></li>
           <li><b>적대성</b><code>hostility</code><span>정중 · 단호 · 폭언 · 위법. 위법한 압박이나 거짓 약속은 자백을 무효로 만듭니다</span></li>
+          <li><b>마무리</b><code>closing move</code><span>이야기가 무너져도 캐묻기만 하면 자백은 없습니다. 자백을 요구하거나 빠져나갈 길을 줘야 합니다</span></li>
           <li><b>공감 · 거짓 약속 · 대답 요구</b><code>empathy · false_promise · expects_answer</code><span>신뢰를 여는 말인지, 법적 이익을 약속하는지, 대답을 기다리는 말인지</span></li>
         </ul>
       </section>
@@ -115,6 +116,7 @@
             <b class="meter__value" id="m-turns">12</b>
           </div>
         </div>
+        <p class="memo" id="hint" role="status"></p>
         <ol class="talk" id="talk" aria-live="polite"></ol>
         <form class="say" id="say">
           <label class="say__to" for="line">형사</label>

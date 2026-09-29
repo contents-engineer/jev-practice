@@ -15,6 +15,7 @@ export const TIER_MOOD: Record<Tier, Mood> = {
   nervous: mood({ fear: 0.6, surprised: 0.15, sad: 0.25 }, 0.42),
   defensive: mood({ angry: 0.65, contempt: 0.35 }, 0.55),
   shaken: mood({ fear: 0.55, sad: 0.45 }, 0.7),
+  breaking: mood({ fear: 0.45, sad: 0.55 }, 0.8),
   broken: mood({ sad: 0.85, fear: 0.15 }, 0.85),
 };
 

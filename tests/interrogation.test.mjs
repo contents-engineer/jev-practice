@@ -164,15 +164,84 @@ test('running out of turns releases the suspect', () => {
   assert.equal(engine.applyTurn(s, file, 'x', r('accuse')), s, 'no turns after an ending');
 });
 
-test('breakdown route: enough cracks and pressure', () => {
+test('breakdown route: cracks and pressure make the suspect breakable, a closing move breaks them', () => {
   let s = engine.newGame(file);
   s = play(s, ['open_question', { topic: 'night' }], ['present_evidence', { evidence: 'cctv' }], ['probe', { topic: 'safe' }], ['present_evidence', { evidence: 'safe_log' }]);
   assert.equal(s.ending, null, 'two cracks but not enough pressure yet');
-  s = play(s, ['accuse'], ['accuse']);
+  assert.equal(engine.isBreaking(s, file), false);
+  // A detail question pushes pressure over the line: no confession, just a visible tell.
+  s = play(s, ['probe', { topic: 'money' }], ['probe', { topic: 'night' }]);
+  assert.ok(s.meters.pressure >= 75);
+  assert.equal(s.ending, null, 'a question is not a closing move');
+  assert.equal(engine.isBreaking(s, file), true);
+  assert.equal(last(s).tier, 'breaking');
+  assert.ok(last(s).events.includes('breaking'));
+  assert.notEqual(last(s).reply, file.topics[0].statement, 'no more storytelling while breaking');
+  s = play(s, ['off_topic']);
+  assert.equal(s.ending, null, 'nor is small talk');
+  assert.equal(last(s).tier, 'breaking');
+  s = play(s, ['accuse']);
   assert.equal(s.ending.kind, 'confession');
   assert.equal(s.ending.route, 'breakdown');
   assert.equal(last(s).reply, file.endings.confession.join('\n\n'));
   assert.equal(last(s).tier, 'broken');
+});
+
+test('the last crack, a landed bluff, or a soft close can also break a breakable suspect', () => {
+  const base = play(engine.newGame(file), ['open_question', { topic: 'night' }], ['present_evidence', { evidence: 'cctv' }], ['probe', { topic: 'safe' }], ['open_question', { topic: 'money' }]);
+  let s = { ...base, meters: { ...base.meters, pressure: 70 } };
+  s = play(s, ['present_evidence', { evidence: 'safe_log' }]);
+  assert.equal(s.ending?.kind, 'confession', 'the crack that completes the story is the closing blow');
+  let t = { ...base, cracked: ['cctv', 'safe_log'], meters: { pressure: 78, trust: 20, guard: 10 } };
+  t = play(t, ['bluff']);
+  assert.ok(last(t).events.includes('bluff_worked'));
+  assert.equal(t.ending?.kind, 'confession');
+  let u = { ...base, cracked: ['cctv', 'safe_log'], meters: { pressure: 78, trust: 20, guard: 10 } };
+  u = play(u, ['minimize']);
+  assert.equal(u.ending?.kind, 'confession');
+  let v = { ...base, cracked: ['cctv', 'safe_log'], meters: { pressure: 78, trust: 20, guard: 10 } };
+  v = play(v, ['present_evidence', { evidence: 'receipt' }]);
+  assert.equal(v.ending, null, 'an irrelevant item is not a closing blow');
+  assert.equal(last(v).tier, 'breaking');
+});
+
+test('asking the same topic twice never repeats the same evasion', () => {
+  let s = engine.newGame(file);
+  s = play(s, ['open_question', { topic: 'night' }], ['probe', { topic: 'night' }], ['probe', { topic: 'night' }]);
+  const [, second, third] = s.log;
+  assert.ok(second.events.includes('pressed') && third.events.includes('pressed'));
+  assert.notEqual(third.reply, second.reply);
+});
+
+test('a demand for the truth closes a breakable suspect and costs less trust than an accusation', () => {
+  const base = play(engine.newGame(file), ['open_question', { topic: 'night' }], ['present_evidence', { evidence: 'cctv' }], ['probe', { topic: 'safe' }], ['present_evidence', { evidence: 'safe_log' }]);
+  let s = play(base, ['demand']);
+  assert.equal(s.ending, null, 'not breakable yet: pressure is still under the line');
+  assert.equal(s.meters.pressure - base.meters.pressure, 8);
+  assert.equal(s.meters.trust - base.meters.trust, -4);
+  assert.equal(s.meters.guard - base.meters.guard, 6);
+  s = play(s, ['demand']);
+  assert.equal(s.ending?.kind, 'confession');
+  assert.equal(s.ending.route, 'breakdown');
+});
+
+test('hints follow the state of the interrogation', () => {
+  let s = engine.newGame(file);
+  assert.match(engine.hintFor(s, file), /진술/);
+  s = play(s, ['open_question', { topic: 'night' }]);
+  assert.match(engine.hintFor(s, file), /증거/);
+  s = play(s, ['present_evidence', { evidence: 'cctv' }]);
+  assert.match(engine.hintFor(s, file), /모순 1개/);
+  s = play(s, ['probe', { topic: 'safe' }], ['present_evidence', { evidence: 'safe_log' }]);
+  assert.match(engine.hintFor(s, file), /압박/);
+  s = { ...s, meters: { ...s.meters, pressure: 80 } };
+  assert.match(engine.hintFor(s, file), /자백을 요구/);
+  const g = { ...s, meters: { ...s.meters, pressure: 40, guard: 80 } };
+  assert.match(engine.hintFor(g, file), /변호사/);
+  const o = { ...engine.newGame(file), cracked: ['cctv'], committed: ['night'], meters: { pressure: 40, trust: 75, guard: 10 } };
+  assert.match(engine.hintFor(o, file), /마음/);
+  const done = play(s, ['accuse']);
+  assert.equal(engine.hintFor(done, file), '');
 });
 
 test('opening route: trust plus a soft close after one crack', () => {
@@ -184,14 +253,18 @@ test('opening route: trust plus a soft close after one crack', () => {
   assert.equal(s.ending.route, 'opening');
 });
 
-test('grades follow turns used, with one step down for a called bluff or abuse', () => {
+test('grades follow turns used against the case par, one step down for a called bluff or abuse', () => {
   const won = (turn, extra = {}) => ({ ...engine.newGame(file), turn, ending: { kind: 'confession', route: 'breakdown', grade: 'S' }, ...extra });
+  assert.equal(engine.parOf(file), 6, 'two cracks: a statement and an item each, plus the close');
   assert.equal(engine.gradeOf(won(6), file), 'S');
   assert.equal(engine.gradeOf(won(8), file), 'A');
   assert.equal(engine.gradeOf(won(10), file), 'B');
   assert.equal(engine.gradeOf(won(12), file), 'C');
   assert.equal(engine.gradeOf(won(6, { bluffCalled: 1 }), file), 'A');
   assert.equal(engine.gradeOf(won(12, { abusive: 1 }), file), 'C');
+  const hard = CASES.find((c) => c.cracksNeeded === 3);
+  assert.equal(engine.parOf(hard), 8);
+  assert.equal(engine.gradeOf({ ...won(8), caseId: hard.id }, hard), 'S');
 });
 
 test('share text carries the case, the outcome, and one emoji per turn', () => {

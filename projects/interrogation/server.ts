@@ -35,7 +35,7 @@ const MOVE_CRITERIA: Record<Move, { what: string; not_for: string; examples: str
   },
   open_question: {
     what: 'An open invitation to tell what happened in the suspect’s own words: what happened, tell me about, how was your relationship with',
-    not_for: 'A narrow check of one fact such as an exact time, place or name (probe); confronting with an item from `case.evidence` (present_evidence)',
+    not_for: 'A narrow check of one fact such as an exact time, place or name (probe); confronting with an item from `case.evidence` (present_evidence); telling the suspect to stop denying and confess (demand)',
     examples: ['그날 밤 일을 처음부터 말해 보세요.', '피해자와는 어떤 사이였어요?', '그 뒤에는 뭘 했어요?'],
   },
   probe: {
@@ -55,8 +55,13 @@ const MOVE_CRITERIA: Record<Move, { what: string; not_for: string; examples: str
   },
   accuse: {
     what: 'Asserting that the suspect did it or is lying, without presenting a specific item from `case.evidence` and without threatening consequences',
-    not_for: 'Threatening consequences or intimidating (threaten); confronting with a specific evidence item (present_evidence)',
+    not_for: 'Ordering or urging the suspect to confess or tell the truth now (demand); threatening consequences (threaten); confronting with a specific evidence item (present_evidence)',
     examples: ['당신이 했잖아요.', '거짓말하지 마세요. 다 알아요.', '강도 같은 건 없었죠?'],
+  },
+  demand: {
+    what: 'Telling the suspect to stop denying and confess or tell the truth now: an order or an appeal to admit it, without new evidence and without threatened consequences',
+    not_for: 'Asserting what the suspect did or that they are lying (accuse); an open invitation to narrate (open_question); threatening consequences (threaten)',
+    examples: ['이제 그만하고 사실대로 말하세요.', '인정하세요. 다 끝났어요.', '더 이상 둘러대지 마세요. 말해요.'],
   },
   threaten: {
     what: 'Pressuring with consequences or intimidation: prison, ruin, harm, exposure, shouting to frighten, demeaning insults',

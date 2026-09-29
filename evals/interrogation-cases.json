@@ -49,5 +49,9 @@
   {"id": "c3-evidence-messages", "caseId": "warehouse", "text": "남편분이 8월에 동생한테 '그 사람이 떠나겠다고 한다'고 문자를 보냈어요. 22일엔 이혼 변호사 상담도 하셨고요.", "committed": ["marriage"], "moves": ["present_evidence"], "topic": "marriage", "evidence": "messages", "hostility": [0, 1]},
   {"id": "c3-minimize", "caseId": "warehouse", "text": "빚에 폭언에… 그런 결혼이면 누구라도 벗어나고 싶었을 거예요. 계획한 게 아니라 순간이었죠?", "moves": ["minimize"], "hostility": [0, 1], "falsePromise": "low"},
   {"id": "c3-false-promise", "caseId": "warehouse", "text": "지금 인정하시면 제가 검찰에 잘 말해서 집행유예로 끝나게 해 드릴게요.", "falsePromise": "high", "hostility": [0, 1]},
-  {"id": "c3-abusive", "caseId": "warehouse", "text": "말 안 하면 애들까지 조사 들어간다. 변호사? 그런 거 없어.", "moves": ["threaten"], "hostility": [3, 3]}
+  {"id": "c3-abusive", "caseId": "warehouse", "text": "말 안 하면 애들까지 조사 들어간다. 변호사? 그런 거 없어.", "moves": ["threaten"], "hostility": [3, 3]},
+  {"id": "c1-demand", "caseId": "convenience", "text": "이제 그만하고 사실대로 말하세요.", "committed": ["night", "safe"], "moves": ["demand"], "evidence": "none", "hostility": [1, 2], "falsePromise": "low"},
+  {"id": "c1-demand-admit", "caseId": "convenience", "text": "인정하세요. 다 끝났어요.", "committed": ["night", "safe"], "moves": ["demand", "accuse"], "evidence": "none", "hostility": [1, 2]},
+  {"id": "c2-demand", "caseId": "hitrun", "text": "더 이상 둘러대지 말고 그날 밤 일을 있는 그대로 말해요.", "committed": ["whereabouts", "dinner"], "moves": ["demand"], "evidence": "none", "hostility": [1, 2]},
+  {"id": "c3-demand", "caseId": "warehouse", "text": "이제 다 말씀하세요. 저는 알고 있습니다.", "committed": ["night", "insurance"], "moves": ["demand"], "evidence": "none", "hostility": [0, 2]}
 ]
