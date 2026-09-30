@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>감정 투과율</title>
+    <meta
+      name="description"
+      content="오늘의 상황을 쓰면 Jev가 읽은 감정을 얼굴에 띄우고, 실제 선글라스 치수와 렌즈 타입으로 남에게 읽히는 표정이 얼마나 남는지 보여 줍니다."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..600,0..100;1,9..144,300..600,0..100&family=Hahmlet:wght@300..600&family=Hanken+Grotesk:wght@400;500;600&family=Martian+Mono:wdth,wght@75..112.5,300..500&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    />
+    <!-- Linked here, not imported from main.ts: an imported stylesheet only lands after three.js loads. -->
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <div class="stage" id="stage" aria-hidden="true">
+        <canvas id="face"></canvas>
+        <p class="stage__loading" id="loading">얼굴을 불러오는 중…</p>
+      </div>
+      <div class="face-slot" id="face-slot"></div>
+
+      <header class="intro">
+        <p class="kicker"><i></i><a href="/">Jev 실험실</a><span>/</span>감정 투과율</p>
+        <h1><span>선글라스는</span> <span>감정을</span> <span><em>얼마나</em> 가릴까</span></h1>
+        <p class="lede">
+          오늘의 상황을 쓰면 Jev가 당신의 감정을 읽어 얼굴에 띄웁니다. 실제 선글라스의 렌즈 높이와 렌즈 타입으로,
+          남에게 읽히는 표정이 얼마나 남는지 보여 줍니다.
+        </p>
+      </header>
+
+      <section class="composer" aria-label="오늘의 상황">
+        <div class="chips" id="samples" aria-label="예시 상황"></div>
+        <div class="bubble">
+          <label class="bubble__to" for="situation">오늘 나의 상황</label>
+          <textarea
+            id="situation"
+            rows="2"
+            maxlength="500"
+            placeholder="예: 내일 첫 면접인데 벌써 손이 떨려요"
+            autocomplete="off"
+            spellcheck="false"
+          ></textarea>
+          <div class="bubble__meta">
+            <span class="status" id="status" data-state="idle"><i></i><span id="status-text"></span></span>
+            <span id="count">0 / 500</span>
+          </div>
+        </div>
+        <div class="manual">
+          <p class="label">Jev 없이 감정 골라 보기</p>
+          <div class="chips chips--small" id="manual" aria-label="감정 직접 고르기"></div>
+        </div>
+      </section>
+
+      <aside class="readout" id="readout" aria-label="감정 투과율">
+        <p class="reading-note" id="reading-note" role="status"></p>
+
+        <dl class="kv">
+          <dt>감정 <code>feeling</code></dt>
+          <dd class="kv__emotion" id="sum-feeling">–</dd>
+          <dt>강도 <code>intensity</code></dt>
+          <dd id="sum-intensity">–</dd>
+        </dl>
+
+        <section class="meter" aria-live="polite">
+          <p class="label">남에게 읽히는 표정</p>
+          <p class="meter__value"><b id="read-total">–</b><span id="read-compare"></span></p>
+          <ol class="regions" id="regions"></ol>
+          <p class="meter__note">맨눈일 때 표정 신호(ARKit 가중치)를 100으로 보고, 렌즈가 가린 만큼 줄인 연출 값입니다. 사람이 감정을 알아보는 정도를 잰 값이 아닙니다.</p>
+        </section>
+
+        <section>
+          <h2 class="label">프레임 <span class="label__hint">VTO 런칭 5개 모델 · 렌즈 높이</span></h2>
+          <div class="picker" id="frames" role="radiogroup" aria-label="프레임"></div>
+          <h2 class="label">렌즈 <span class="label__hint" id="variant-name"></span></h2>
+          <div class="picker picker--tones" id="tones" role="radiogroup" aria-label="렌즈"></div>
+        </section>
+
+        <section>
+          <h2 class="label"><label for="wanted">보여주고 싶은 만큼</label> <output class="label__hint" id="wanted-out" for="wanted">40%</output></h2>
+          <input type="range" id="wanted" min="0" max="100" step="1" value="40" />
+          <ol class="picks" id="picks"></ol>
+        </section>
+
+        <details class="raw">
+          <summary>계산 방법과 가설값</summary>
+          <div class="raw__body">
+            <p>렌즈가 덮는 부위는 렌즈 높이로 정합니다. 렌즈 중심을 동공보다 3mm 위에 두고, 눈썹은 동공 위 17~27mm, 볼(웃을 때 올라가는 부분)은 아래 14~24mm 띠에서 움직인다고 봅니다.</p>
+            <p>덮인 부위는 렌즈 투과율만큼만 보입니다. 틴트 50%, 다크 18%, 미러 4%로 둔 가설값이며, 상품 데이터의 투과율로 바꿔야 합니다. 입과 턱은 가리지 않습니다.</p>
+            <pre>보이는 정도 = Σ 가중치 × (1 − 덮인 비율 × (1 − 투과율)) ÷ Σ 가중치</pre>
+          </div>
+        </details>
+        <details class="raw">
+          <summary>원본 응답 JSON</summary>
+          <pre id="raw-response">아직 응답이 없습니다.</pre>
+        </details>
+        <details class="raw">
+          <summary>요청 JSON</summary>
+          <pre id="raw-request">아직 요청이 없습니다.</pre>
+        </details>
+      </aside>
+
+      <footer class="credits">
+        <p><span>모델</span>TypeSafe AI Jev (jev-latest, TypeSafe API)</p>
+        <p><span>제품 치수</span>2026-09-30 제품 데이터의 VTO 런칭 모델</p>
+        <p>
+          <span>얼굴 모델</span>Bannaflak의
+          <a href="https://www.bannaflak.com/face-cap" target="_blank" rel="noopener">Face Cap</a>
+        </p>
+      </footer>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

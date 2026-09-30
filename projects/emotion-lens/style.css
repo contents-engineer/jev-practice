@@ -1,0 +1,740 @@
+:root {
+  --bg: #0a0b0c;
+  --ink: #ece9e3;
+  --ink-2: rgb(236 233 227 / 0.7);
+  --ink-3: rgb(236 233 227 / 0.44);
+  --ink-4: rgb(236 233 227 / 0.16);
+  --line: rgb(236 233 227 / 0.1);
+  --glass: rgb(16 17 19 / 0.66);
+  /* Smoked lens: the colour of what the lens hides. */
+  --smoke: #5d6875;
+  /* Written from main.ts: the leading emotion's colour and how strongly it is felt. */
+  --mood: 236 233 227;
+  --mood-strength: 0;
+  /* Latin faces first; Hangul falls through to Hahmlet (serif) and Pretendard (sans, mono). */
+  --serif: 'Fraunces', 'Hahmlet', 'Iowan Old Style', Georgia, serif;
+  --sans: 'Hanken Grotesk', 'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
+  --mono: 'Martian Mono', 'Pretendard Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+  --ease: cubic-bezier(0.2, 0.7, 0.1, 1);
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 15px/1.55 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--mood));
+  outline-offset: 2px;
+}
+
+code {
+  font: 400 0.78em/1 var(--mono);
+  color: var(--ink-3);
+}
+
+/* ── Layout ───────────────────────────────────────────────────────────── */
+
+.layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: clamp(280px, 27vw, 400px) minmax(0, 1fr) clamp(310px, 26vw, 380px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'intro    slot readout'
+    'composer slot readout'
+    'credits  slot readout';
+  gap: 20px 28px;
+  height: 100svh;
+  padding: 32px 36px 28px;
+  pointer-events: none; /* drags on empty space reach the canvas */
+}
+
+.layout > :not(.stage, .face-slot) {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+.face-slot {
+  grid-area: slot;
+}
+
+/* ── Stage ────────────────────────────────────────────────────────────── */
+
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: auto;
+  background:
+    radial-gradient(
+      540px 500px at var(--glow-x, 50%) var(--glow-y, 45%),
+      rgb(var(--mood) / calc(0.06 + var(--mood-strength) * 0.2)),
+      transparent 72%
+    ),
+    radial-gradient(120% 60% at 50% 115%, #141820, transparent 70%),
+    var(--bg);
+}
+
+.stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 80% 90% at var(--glow-x, 50%) 45%, transparent 55%, rgb(0 0 0 / 0.55));
+}
+
+.stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 1.4s var(--ease);
+}
+
+.stage.is-ready canvas {
+  opacity: 1;
+}
+
+.stage__loading {
+  position: absolute;
+  left: var(--glow-x, 50%);
+  top: var(--glow-y, 45%);
+  margin: 0;
+  transform: translate(-50%, -50%);
+  font: 400 10px/1 var(--mono);
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+
+.stage.is-ready .stage__loading {
+  visibility: hidden;
+}
+
+/* ── Intro ────────────────────────────────────────────────────────────── */
+
+.intro {
+  grid-area: intro;
+}
+
+.kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 22px;
+  font: 400 10px/1 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+
+.kicker i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgb(var(--mood));
+  box-shadow: 0 0 14px rgb(var(--mood) / 0.8);
+}
+
+.kicker a {
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.kicker a:hover {
+  color: var(--ink);
+}
+
+.kicker span {
+  color: var(--ink-4);
+}
+
+h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(28px, 2.7vw, 40px);
+  font-weight: 380;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100;
+  line-height: 1.24;
+  letter-spacing: -0.03em;
+}
+
+h1 span {
+  display: inline-block;
+}
+
+/* Hangul has no italic, so the emphasis is colour and weight. */
+h1 em {
+  font-style: normal;
+  font-weight: 560;
+  color: rgb(var(--mood));
+}
+
+.lede {
+  margin: 18px 0 0;
+  max-width: 36em;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+
+/* ── Composer ─────────────────────────────────────────────────────────── */
+
+.composer {
+  grid-area: composer;
+  align-self: end;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  font-size: 13px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.chip:hover {
+  border-color: var(--ink-3);
+  color: var(--ink);
+}
+
+.chips--small .chip {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.chip i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c, var(--ink-3));
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--c, var(--ink));
+  color: var(--ink);
+}
+
+.bubble {
+  padding: 14px 16px 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+}
+
+.bubble__to {
+  display: block;
+  margin-bottom: 4px;
+  font: 400 10px/1 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+
+.bubble textarea {
+  width: 100%;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 400 17px/1.5 var(--sans);
+}
+
+.bubble textarea::placeholder {
+  color: var(--ink-4);
+}
+
+.bubble__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font: 400 10px/1.4 var(--mono);
+  color: var(--ink-3);
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.status i {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+
+.status[data-state='reading'] i {
+  background: rgb(var(--mood));
+  animation: pulse 0.8s ease-in-out infinite alternate;
+}
+
+.status[data-state='ok'] i {
+  background: #7cc5a2;
+}
+
+.status[data-state='error'] i {
+  background: #e2554b;
+}
+
+.manual {
+  display: grid;
+  gap: 6px;
+}
+
+/* ── Readout ──────────────────────────────────────────────────────────── */
+
+.readout {
+  grid-area: readout;
+  display: grid;
+  align-content: start;
+  gap: 22px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--glass);
+  backdrop-filter: blur(18px);
+  scrollbar-width: thin;
+}
+
+.readout section {
+  display: grid;
+  gap: 10px;
+}
+
+.label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  font: 500 11px/1.3 var(--sans);
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+}
+
+.label__hint {
+  font: 400 10px/1.3 var(--mono);
+  color: var(--ink-3);
+  text-align: right;
+}
+
+.reading-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.kv dt {
+  color: var(--ink-3);
+}
+
+.kv dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.kv__emotion {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.kv__emotion i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c);
+}
+
+/* The headline number and its region breakdown. */
+.meter {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgb(var(--mood) / calc(0.04 + var(--mood-strength) * 0.06));
+  border: 1px solid var(--line);
+}
+
+.meter__value {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 0;
+}
+
+.meter__value b {
+  font: 400 44px/1 var(--serif);
+  font-variation-settings: 'opsz' 144;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--mood));
+}
+
+.meter__value span {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.meter__note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.regions {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.regions li {
+  display: grid;
+  grid-template-columns: 3.2em minmax(0, 1fr) 6.5em;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.regions__name {
+  color: var(--ink-2);
+}
+
+.regions__bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--ink-4);
+}
+
+.regions__bar i {
+  display: block;
+  height: 100%;
+  transition: width 0.45s var(--ease);
+}
+
+.regions__shown {
+  background: rgb(var(--mood));
+}
+
+/* What the lens hides: smoked glass stripes. */
+.regions__hidden {
+  background: repeating-linear-gradient(135deg, var(--smoke) 0 3px, rgb(93 104 117 / 0.45) 3px 6px);
+}
+
+.regions__num {
+  font: 400 10px/1 var(--mono);
+  color: var(--ink-3);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.picker {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.picker--tones {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.picker button {
+  display: grid;
+  gap: 2px;
+  padding: 8px 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.picker button small {
+  font: 400 9px/1.2 var(--mono);
+  color: var(--ink-3);
+}
+
+.picker button:hover {
+  border-color: var(--ink-3);
+}
+
+.picker button[aria-checked='true'] {
+  border-color: rgb(var(--mood));
+  background: rgb(var(--mood) / 0.1);
+}
+
+input[type='range'] {
+  width: 100%;
+  accent-color: rgb(var(--mood));
+}
+
+.picks {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.picks button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.picks button:hover,
+.picks button.is-current {
+  border-color: rgb(var(--mood));
+}
+
+.picks__name {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.picks__name small {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.picks b {
+  font: 400 15px/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.picks__empty {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.raw {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  font-size: 12px;
+}
+
+.raw summary {
+  cursor: pointer;
+  color: var(--ink-2);
+}
+
+.raw pre {
+  margin: 8px 0 0;
+  max-height: 260px;
+  overflow: auto;
+  font: 400 10px/1.5 var(--mono);
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.raw__body p {
+  margin: 8px 0 0;
+  color: var(--ink-2);
+  line-height: 1.6;
+}
+
+/* ── Credits ──────────────────────────────────────────────────────────── */
+
+.credits {
+  grid-area: credits;
+  align-self: end;
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.credits p {
+  margin: 0;
+}
+
+.credits span {
+  display: inline-block;
+  min-width: 6.5em;
+  font: 400 9px/1 var(--mono);
+  letter-spacing: 0.04em;
+  color: var(--ink-4);
+}
+
+.credits a {
+  color: var(--ink-2);
+}
+
+/* ── Motion ───────────────────────────────────────────────────────────── */
+
+/* main.ts builds the chips and the readout, then adds .is-live. */
+html:not(.is-live) :is(.kicker, h1, .lede, .readout, .composer, .credits) {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .is-live :is(.kicker, h1, .lede, .readout, .composer, .credits) {
+    animation: rise 1s var(--ease) var(--delay, 0s) both;
+  }
+
+  h1 {
+    --delay: 0.08s;
+  }
+
+  .lede {
+    --delay: 0.16s;
+  }
+
+  .readout {
+    --delay: 0.26s;
+  }
+
+  .composer {
+    --delay: 0.36s;
+  }
+
+  .credits {
+    --delay: 0.46s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .regions__bar i,
+  .stage canvas {
+    transition: none;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes pulse {
+  to {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
+}
+
+/* ── Narrow screens: stack everything, the face gets its own band ────── */
+
+@media (max-width: 1023px) {
+  body {
+    overflow: auto;
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: 'intro' 'stage' 'composer' 'readout' 'credits';
+    gap: 18px;
+    height: auto;
+    min-height: 100svh;
+    padding: 24px 16px 28px;
+  }
+
+  .stage {
+    position: relative;
+    inset: auto;
+    grid-area: stage;
+    height: 52svh;
+    min-height: 320px;
+    margin: 0 -16px;
+    mask-image: linear-gradient(transparent, #000 8%, #000 92%, transparent);
+  }
+
+  .face-slot {
+    display: none;
+  }
+
+  h1 {
+    font-size: clamp(26px, 7.4vw, 38px);
+  }
+
+  .readout {
+    overflow: visible;
+  }
+
+  .picker button small {
+    font-size: 8px;
+  }
+}
