@@ -1,6 +1,6 @@
 // The game itself: pure functions over a GameState. Jev's reading of one utterance comes in,
 // the suspect's meters, reply and composure come out. Nothing here talks to the network.
-import { GENERIC_LINES, MOVE_META, MOVES, type CaseFile, type Move, type Tier } from './cases';
+import { GENERIC_LINES, MOVE_META, MOVES, statementFor, type CaseFile, type Move, type Tier } from './cases';
 import type { Reading } from './server';
 
 export type { Reading };
@@ -15,6 +15,7 @@ export type EventKind =
   | 'statement'
   | 'pressed'
   | 'crack'
+  | 'corroborate'
   | 'adapt'
   | 'repeat'
   | 'deflect'
@@ -53,6 +54,8 @@ export interface GameState {
   meters: Meters;
   /** Topics the suspect has given an account of, in order. */
   committed: string[];
+  /** Current topic-local accounts, shared by dialogue, notebook and Jev input. */
+  statements: Record<string, string>;
   /** Evidence ids the story bent around (presented before a statement). */
   adapted: string[];
   /** Evidence ids that caught a contradiction. */
@@ -71,6 +74,7 @@ export const EVENT_META: Record<EventKind, { ko: string; badge?: boolean }> = {
   statement: { ko: '진술 확보' },
   pressed: { ko: '재질문' },
   crack: { ko: '모순!', badge: true },
+  corroborate: { ko: '보강 증거 · 새 모순 없음', badge: true },
   adapt: { ko: '이야기를 바꿈', badge: true },
   repeat: { ko: '이미 제시한 증거' },
   deflect: { ko: '무관한 증거' },
@@ -95,6 +99,7 @@ export function newGame(file: CaseFile): GameState {
     turn: 0,
     meters: { ...file.start },
     committed: [],
+    statements: {},
     adapted: [],
     cracked: [],
     presented: [],
@@ -126,7 +131,19 @@ export function readingOf(partial: Partial<Reading> & { move: Move }): Reading {
 
 /** Story broken and pressure high: the suspect will confess to a closing move, and only to one. */
 export function isBreaking(state: GameState, file: CaseFile): boolean {
-  return state.cracked.length >= file.cracksNeeded && state.meters.pressure >= BREAK_PRESSURE;
+  return crackedTopics(state, file).length >= file.cracksNeeded && state.meters.pressure >= BREAK_PRESSURE;
+}
+
+/** Evidence history is separate from progress: each broken topic counts once. */
+export function crackedTopics(state: GameState, file: CaseFile): string[] {
+  return [...new Set(state.cracked.flatMap((id) => {
+    const topic = file.evidence.find((e) => e.id === id)?.breaks;
+    return topic ? [topic] : [];
+  }))];
+}
+
+export function isOpening(state: GameState, file: CaseFile): boolean {
+  return crackedTopics(state, file).length >= file.cracksNeeded - 1 && state.meters.trust >= 70 && state.meters.pressure >= 35;
 }
 
 export function tierOf(m: Meters, breaking = false): Tier {
@@ -152,6 +169,7 @@ export function applyTurn(state: GameState, file: CaseFile, text: string, readin
     ...state,
     meters: { ...state.meters },
     committed: [...state.committed],
+    statements: { ...state.statements },
     adapted: [...state.adapted],
     cracked: [...state.cracked],
     presented: [...state.presented],
@@ -160,6 +178,7 @@ export function applyTurn(state: GameState, file: CaseFile, text: string, readin
   };
   const before = { ...state.meters };
   const wasBreaking = isBreaking(state, file);
+  const wasOpening = isOpening(state, file);
   const events: EventKind[] = [];
   const d = { pressure: 0, trust: 0, guard: 0 };
   const pick = (lines: string[]) => lines[s.log.length % lines.length];
@@ -176,29 +195,39 @@ export function applyTurn(state: GameState, file: CaseFile, text: string, readin
   // Jev names an item for any question that touches its subject, so a probe about the safe
   // is not a presentation of the safe's log.
   if (item && move === 'present_evidence') {
+    const accountId = item.breaks ? s.statements[item.breaks] : undefined;
+    const account = item.breaks && accountId ? statementFor(file, item.breaks, accountId) : undefined;
     if (s.presented.includes(item.id)) {
       events.push('repeat');
       d.pressure += 2;
-      reply = item.repeat;
+      reply = account ? pick(account.pressed.calm!) : item.repeat;
     } else if (item.breaks === null) {
       events.push('deflect');
       s.presented.push(item.id);
       d.pressure += 2;
       d.trust -= 2;
       reply = item.deflect;
-    } else if (s.committed.includes(item.breaks)) {
-      events.push('crack');
+    } else if (accountId && item.contradicts.includes(accountId)) {
+      const alreadyBroken = crackedTopics(s, file).includes(item.breaks);
+      events.push(alreadyBroken ? 'corroborate' : 'crack');
       s.presented.push(item.id);
       s.cracked.push(item.id);
-      d.pressure += 22;
-      d.guard -= 5;
+      s.statements[item.breaks] = `crack:${item.id}`;
+      d.pressure += alreadyBroken ? 2 : 22;
+      if (!alreadyBroken) d.guard -= 5;
       reply = item.crack;
+    } else if (account) {
+      events.push('corroborate');
+      s.presented.push(item.id);
+      d.pressure += 2;
+      reply = pick(account.pressed.calm!);
     } else {
       // Shown the evidence first, the suspect bends the story around it: no contradiction to catch.
       events.push('adapt');
       s.presented.push(item.id);
       s.adapted.push(item.id);
       s.committed.push(item.breaks);
+      s.statements[item.breaks] = `adapt:${item.id}`;
       d.pressure += 8;
       reply = item.adapt;
     }
@@ -217,13 +246,15 @@ export function applyTurn(state: GameState, file: CaseFile, text: string, readin
     if (s.committed.includes(topic.id)) {
       events.push('pressed');
       const tier = tierOf({ pressure: s.meters.pressure + d.pressure, trust: s.meters.trust + d.trust, guard: s.meters.guard + d.guard });
-      const lines = topic.pressed[tier] ?? topic.pressed.shaken ?? topic.pressed.calm ?? [topic.statement];
+      const account = statementFor(file, topic.id, s.statements[topic.id])!;
+      const lines = account.pressed[tier] ?? account.pressed.calm!;
       // Never say the same evasion twice in a row: fall through to the generic lines instead.
       const previous = s.log[s.log.length - 1]?.reply;
       reply = lines.find((line) => line !== previous) ?? pick(linesFor(move, tier));
     } else {
       events.push('statement');
       s.committed.push(topic.id);
+      s.statements[topic.id] = 'initial';
       reply = topic.statement;
     }
   } else {
@@ -321,16 +352,15 @@ export function applyTurn(state: GameState, file: CaseFile, text: string, readin
 
   // Endings, in order of precedence. A breakable suspect confesses only to a closing move:
   // a demand or a way out, the crack that completes the story, or a bluff that lands.
-  const cracks = s.cracked.length;
   const soft = move === 'minimize' || move === 'rapport';
   const closer = CLOSERS.includes(move) || events.includes('crack') || events.includes('bluff_worked');
   let ending: Ending | null = null;
   if (s.meters.guard >= 100) {
     ending = { kind: 'lawyer', route: null, grade: 'E' };
     reply = file.endings.lawyer;
-  } else if (breaking && closer) {
+  } else if ((wasBreaking || breaking) && closer) {
     ending = { kind: 'confession', route: 'breakdown', grade: 'C' };
-  } else if (cracks >= file.cracksNeeded - 1 && s.meters.trust >= 70 && s.meters.pressure >= 35 && soft) {
+  } else if ((wasOpening || isOpening(s, file)) && soft) {
     ending = { kind: 'confession', route: 'opening', grade: 'C' };
   } else if (s.turn >= file.maxTurns) {
     ending = { kind: 'timeout', route: null, grade: 'D' };
@@ -375,10 +405,10 @@ export function gradeOf(state: GameState, file: CaseFile): Grade {
 /** One line for the detective's notebook: what the state of the interview calls for now. */
 export function hintFor(state: GameState, file: CaseFile): string {
   if (state.ending) return '';
-  const { pressure, trust, guard } = state.meters;
-  const cracks = state.cracked.length;
+  const { guard } = state.meters;
+  const cracks = crackedTopics(state, file).length;
   if (isBreaking(state, file)) return '무너지기 직전입니다. 자백을 요구하거나(자백 요구·추궁) 빠져나갈 길을 주세요(최소화·라포). 질문은 자백을 내지 않습니다.';
-  if (cracks >= file.cracksNeeded - 1 && trust >= 70 && pressure >= 35) return '마음이 열렸습니다. 이해할 만한 동기를 제시하거나(최소화) 다독이면(라포) 털어놓을 수 있습니다.';
+  if (isOpening(state, file)) return '마음이 열렸습니다. 이해할 만한 동기를 제시하거나(최소화) 다독이면(라포) 털어놓을 수 있습니다.';
   if (guard >= 75) return '방어가 높습니다. 이대로면 변호사를 부릅니다. 라포로 낮추세요.';
   if (cracks >= file.cracksNeeded) return `이야기가 무너졌습니다. 압박을 ${BREAK_PRESSURE} 위로 올리세요(자백 요구·추궁·증거). 위협은 방어만 키웁니다.`;
   if (state.committed.length === 0) return '먼저 진술을 받아내세요. 그날 일을 묻고, 세부를 좁히세요.';
@@ -400,7 +430,7 @@ export function shareText(state: GameState, file: CaseFile, url: string): string
   const grade = state.ending ? ` · 등급 ${state.ending.grade}` : '';
   return [
     `취조실 · 「${file.title}」`,
-    `${outcome} ${state.turn}턴 · 모순 ${state.cracked.length}개 (필요 ${file.cracksNeeded})${grade}`,
+    `${outcome} ${state.turn}턴 · 모순 ${crackedTopics(state, file).length}개 화제 (필요 ${file.cracksNeeded})${grade}`,
     trail,
     url,
   ].join('\n');

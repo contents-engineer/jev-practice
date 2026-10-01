@@ -49,7 +49,7 @@
         <h2 class="label">이 게임이 읽는 것</h2>
         <ul class="rules__list">
           <li><b>행동</b><code>move</code><span>라포 · 열린 질문 · 세부 추궁 · 증거 제시 · 허세 · 추궁 · 자백 요구 · 위협 · 최소화 · 무관 · 불명확</span></li>
-          <li><b>화제</b><code>topic</code><span>어느 진술을 건드리는가. 진술이 나온 뒤에 증거를 대야 모순이 잡힙니다</span></li>
+          <li><b>화제</b><code>topic</code><span>어느 진술을 건드리는가. 현재 진술과 모순되는 증거를 대야 합니다</span></li>
           <li><b>증거</b><code>evidence</code><span>사건 파일의 어떤 항목을 이름 붙여 말했는가. 파일에 없는 증거는 허세로 읽힙니다</span></li>
           <li><b>적대성</b><code>hostility</code><span>정중 · 단호 · 폭언 · 위법. 위법한 압박이나 거짓 약속은 자백을 무효로 만듭니다</span></li>
           <li><b>마무리</b><code>closing move</code><span>이야기가 무너져도 캐묻기만 하면 자백은 없습니다. 자백을 요구하거나 빠져나갈 길을 줘야 합니다</span></li>
@@ -80,11 +80,11 @@
         <ul class="tips" id="file-tips"></ul>
         <section>
           <h3 class="label">증거 <code>evidence</code></h3>
-          <p class="hint">누르면 입력창에 이름이 들어갑니다. 진술이 나온 뒤에 제시해야 모순이 됩니다.</p>
+          <p class="hint">누르면 입력창에 이름이 들어갑니다. 현재 진술을 깨는 증거를 제시하세요. 같은 화제는 한 번만 셉니다.</p>
           <ol class="evidence" id="evidence"></ol>
         </section>
         <section>
-          <h3 class="label">수첩 · 용의자의 진술 <code>committed</code></h3>
+          <h3 class="label">수첩 · 용의자의 현재 진술 <code>statements</code></h3>
           <ol class="notes" id="notes"></ol>
         </section>
       </aside>
@@ -110,7 +110,7 @@
             <b class="meter__value" id="m-guard">0</b>
           </div>
           <div class="meter meter--tally">
-            <span class="meter__name">모순</span>
+            <span class="meter__name">모순 화제</span>
             <span class="pips" id="m-cracks"></span>
             <span class="meter__name meter__name--turns">남은 턴</span>
             <b class="meter__value" id="m-turns">12</b>

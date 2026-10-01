@@ -3,9 +3,9 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { ProbabilityBars } from '../emotion-face/bars';
 import { Face } from '../emotion-face/face';
 import type { Mood } from '../emotion-face/emotions';
-import { CASES, MOVES, MOVE_META, TIER_META, caseById, type CaseFile, type Tier } from './cases';
+import { CASES, MOVES, MOVE_META, TIER_META, caseById, statementFor, type CaseFile, type Tier } from './cases';
 import { flashForEvents, moodForTier } from './director';
-import { EVENT_META, OUTCOME_KO, applyTurn, hintFor, isBreaking, newGame, shareText, tierOf, type GameState, type Grade, type TurnRecord } from './engine';
+import { EVENT_META, OUTCOME_KO, applyTurn, crackedTopics, hintFor, isBreaking, newGame, shareText, tierOf, type GameState, type Grade, type TurnRecord } from './engine';
 import type { TurnReading } from './server';
 
 const $ = <T extends Element = HTMLElement>(selector: string) => document.querySelector(selector) as T;
@@ -322,7 +322,7 @@ function renderState(record: TurnRecord | null) {
   out.cracks.replaceChildren(
     ...Array.from({ length: file.cracksNeeded }, (_, i) => {
       const pip = document.createElement('i');
-      pip.classList.toggle('is-on', i < state.cracked.length);
+      pip.classList.toggle('is-on', i < crackedTopics(state, file).length);
       return pip;
     }),
   );
@@ -348,12 +348,12 @@ function renderState(record: TurnRecord | null) {
     out.notes.replaceChildren(
       ...state.committed.map((id) => {
         const topic = file.topics.find((t) => t.id === id)!;
-        const bent = file.evidence.find((e) => e.breaks === id && state.adapted.includes(e.id));
+        const bent = state.statements[id].startsWith('adapt:');
         const cracked = file.evidence.some((e) => e.breaks === id && state.cracked.includes(e.id));
         const li = document.createElement('li');
         li.className = `note${cracked ? ' is-cracked' : bent ? ' is-adapted' : ''}`;
         li.innerHTML = `<span class="note__topic">${topic.name_ko}<span class="note__state">${cracked ? '모순' : bent ? '증거에 맞춰 바꿈' : '진술'}</span></span><p class="note__text"></p>`;
-        li.querySelector('.note__text')!.textContent = bent && !cracked ? bent.adapt : topic.statement;
+        li.querySelector('.note__text')!.textContent = statementFor(file, id, state.statements[id])!.statement;
         return li;
       }),
     );
@@ -494,7 +494,7 @@ async function fetchTurn(text: string): Promise<TurnReading> {
     const res = await fetch('/api/interrogation/turn', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ caseId: file.id, text, committed: state.committed, adapted: state.adapted }),
+      body: JSON.stringify({ caseId: file.id, text, statements: state.statements }),
       signal: AbortSignal.timeout(15_000),
     });
     const body = await res.json().catch(() => ({}));
@@ -560,7 +560,7 @@ function showEnding() {
   out.endingTitle.textContent = title;
   out.endingGrade.textContent = end.grade;
   const route = end.route === 'breakdown' ? '무너뜨리기' : end.route === 'opening' ? '마음 열기' : '–';
-  out.endingStats.textContent = `${OUTCOME_KO[end.kind]} · ${state.turn}턴\n모순 ${state.cracked.length}개 (필요 ${file.cracksNeeded}) · 진술 ${state.committed.length}개 · 경로 ${route}\n${state.tainted ? `강압 표시: ${state.tainted === 'threat' ? '위법한 위협' : '거짓 약속'}` : '강압 없음'}`;
+  out.endingStats.textContent = `${OUTCOME_KO[end.kind]} · ${state.turn}턴\n모순 ${crackedTopics(state, file).length}개 화제 (필요 ${file.cracksNeeded}) · 진술 ${state.committed.length}개 · 경로 ${route}\n${state.tainted ? `강압 표시: ${state.tainted === 'threat' ? '위법한 위협' : '거짓 약속'}` : '강압 없음'}`;
   const last = state.log[state.log.length - 1];
   out.endingBody.replaceChildren(...last.reply.split('\n\n').map((text) => Object.assign(document.createElement('p'), { textContent: text })));
   out.endingNote.textContent =

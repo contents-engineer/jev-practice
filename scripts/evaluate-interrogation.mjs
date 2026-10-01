@@ -14,7 +14,7 @@ for (const item of cases) {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ caseId: item.caseId, text: item.text, committed: item.committed ?? [], adapted: item.adapted ?? [] }),
+      body: JSON.stringify({ caseId: item.caseId, text: item.text, statements: item.statements ?? {} }),
       signal: AbortSignal.timeout(20_000),
     });
     const turn = await response.json();

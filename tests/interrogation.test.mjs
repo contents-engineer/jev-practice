@@ -81,7 +81,7 @@ test('re-presenting, irrelevant evidence, and evidence talk without an item', ()
   s = play(s, ['present_evidence', { evidence: 'cctv' }]);
   assert.deepEqual(last(s).events, ['repeat']);
   assert.ok(s.meters.pressure - p <= 2);
-  assert.equal(last(s).reply, file.evidence[0].repeat);
+  assert.equal(last(s).reply, file.evidence[0].cracked_pressed.calm[0]);
   s = play(s, ['present_evidence', { evidence: 'receipt' }]);
   assert.deepEqual(last(s).events, ['deflect']);
   assert.equal(last(s).reply, file.evidence[4].deflect);
@@ -300,12 +300,12 @@ test('turn route rejects bad bodies without calling Jev and builds state from th
   const { readTurn } = await vite.ssrLoadModule('/projects/interrogation/server.ts');
   const calls = [];
   const mock = { systemOne: async (...args) => { calls.push(args); return answersFor(); } };
-  const bad = [null, {}, { caseId: 'convenience' }, { caseId: 'convenience', text: '' }, { caseId: 'convenience', text: '   ' }, { caseId: 'nope', text: '안녕' }, { caseId: 'convenience', text: '안녕', committed: 'night' }];
+  const bad = [null, {}, { caseId: 'convenience' }, { caseId: 'convenience', text: '' }, { caseId: 'convenience', text: '   ' }, { caseId: 'nope', text: '안녕' }, { caseId: 'convenience', text: '안녕', statements: 'night' }];
   for (const body of bad) await assert.rejects(readTurn(body, mock), (error) => error.status === 400, JSON.stringify(body));
   await assert.rejects(readTurn({ caseId: 'convenience', text: 'x'.repeat(201) }, mock), (error) => error.status === 413);
   assert.equal(calls.length, 0);
 
-  const result = await readTurn({ caseId: 'convenience', text: 'CCTV 봤어요.', committed: ['night', 'safe'], adapted: ['safe_log'] }, mock);
+  const result = await readTurn({ caseId: 'convenience', text: 'CCTV 봤어요.', statements: { night: 'initial', safe: 'adapt:safe_log' } }, mock);
   assert.equal(calls.length, 1);
   const [{ state, questions }] = calls[0];
   assert.deepEqual(Object.keys(questions), ['move', 'topic', 'evidence', 'hostility', 'empathy', 'false_promise', 'expects_answer']);
@@ -331,4 +331,143 @@ test('hostility level rounds the expected score unless abuse is likely', async (
   assert.equal(mild.hostilityLevel, 1);
   const unknownMove = toReading(answersFor({ move: { type: 'choice', choice: 'zzz', confidence: 1, probabilities: {} } }).answers);
   assert.equal(unknownMove.move, 'unclear');
+});
+
+// Fixed semantic expectations: authored account ids which each evidence item contradicts.
+// Everything omitted is compatible, not an implicit contradiction on the same topic.
+const contradictionMatrix = {
+  convenience: { cctv: ['initial', 'adapt:door'], safe_log: ['initial'], loan: ['initial'], door: ['adapt:cctv'], receipt: [] },
+  hitrun: { dashcam: ['initial', 'adapt:cell', 'crack:cell'], cell: ['initial', 'adapt:dashcam', 'crack:dashcam'], repair: ['initial'], carwash: ['initial'], coworker: ['initial'], insurance: [] },
+  warehouse: { policy: ['initial'], toxicology: ['initial'], neighbor: ['initial', 'adapt:toxicology', 'crack:toxicology'], accelerant: ['initial'], messages: ['initial'], key: ['initial'], alarm: [] },
+};
+
+test('all case evidence/account combinations follow the fixed contradiction matrix', async () => {
+  const { statementFor } = await vite.ssrLoadModule('/projects/interrogation/cases.ts');
+  for (const f of CASES) {
+    for (const item of f.evidence) {
+      assert.deepEqual(item.contradicts, contradictionMatrix[f.id][item.id], `${f.id}/${item.id}: semantic contract`);
+      if (!item.breaks) continue;
+      const ids = ['initial', ...f.evidence.filter(e => e.breaks === item.breaks).flatMap(e => [`adapt:${e.id}`, `crack:${e.id}`])];
+      for (const id of ids) {
+        const account = statementFor(f, item.breaks, id);
+        assert.ok(account?.statement_en && account.statement && account.pressed.calm.length, `${f.id}/${item.breaks}/${id}`);
+        const before = { ...engine.newGame(f), committed: [item.breaks], statements: { [item.breaks]: id } };
+        const next = engine.applyTurn(before, f, 'matrix', r('present_evidence', { evidence: item.id }));
+        const expected = contradictionMatrix[f.id][item.id].includes(id);
+        assert.equal(next.log.at(-1).events.includes('crack'), expected, `${f.id}/${item.id} vs ${id}`);
+        assert.equal(engine.crackedTopics(next, f).length, expected ? 1 : 0);
+        assert.equal(next.statements[item.breaks], expected ? `crack:${item.id}` : id);
+        assert.deepEqual(before.statements, { [item.breaks]: id }, 'input state is immutable');
+      }
+      for (const id of item.contradicts) assert.ok(statementFor(f, item.breaks, id), 'no dangling statement references');
+    }
+  }
+});
+
+test('front door claim is compatible with a locked back door; changed back-door claim is not', () => {
+  const compatible = play(engine.newGame(file), ['probe', { topic: 'night' }], ['present_evidence', { evidence: 'door' }]);
+  assert.deepEqual(last(compatible).events, ['corroborate']);
+  assert.equal(compatible.statements.night, 'initial');
+  assert.equal(engine.crackedTopics(compatible, file).length, 0);
+  const caught = play(engine.newGame(file), ['present_evidence', { evidence: 'cctv' }], ['present_evidence', { evidence: 'door' }]);
+  assert.deepEqual(last(caught).events, ['crack']);
+  assert.equal(caught.statements.night, 'crack:door');
+});
+
+test('one topic cannot satisfy multiple required contradictions or repeat the +22 reward', () => {
+  const f = CASES.find(c => c.id === 'hitrun');
+  let s = engine.newGame(f);
+  for (const reading of [r('probe', { topic: 'whereabouts' }), r('present_evidence', { evidence: 'dashcam' }), r('present_evidence', { evidence: 'cell' })]) {
+    s = engine.applyTurn(s, f, 'x', reading);
+  }
+  assert.equal(s.cracked.length, 2, 'evidence history retains both actual contradictions');
+  assert.deepEqual(engine.crackedTopics(s, f), ['whereabouts']);
+  assert.deepEqual(last(s).events, ['corroborate']);
+  assert.equal(last(s).after.pressure - last(s).before.pressure, 2);
+  const exploit = play(engine.newGame(file), ['probe', { topic: 'night' }], ['present_evidence', { evidence: 'cctv' }], ['present_evidence', { evidence: 'door' }], ['demand'], ['demand']);
+  assert.equal(exploit.ending, null, 'old five-turn shortcut no longer confesses');
+});
+
+test('changed statements survive follow-up questions, repeated evidence and model context', async () => {
+  const { stateFor } = await vite.ssrLoadModule('/projects/interrogation/server.ts');
+  const { statementFor } = await vite.ssrLoadModule('/projects/interrogation/cases.ts');
+  for (const f of CASES) for (const item of f.evidence.filter(e => e.breaks)) {
+    for (const firstAsk of [false, true]) {
+      let s = engine.newGame(f);
+      if (firstAsk) s = engine.applyTurn(s, f, 'x', r('probe', { topic: item.breaks }));
+      s = engine.applyTurn(s, f, 'x', r('present_evidence', { evidence: item.id }));
+      const id = s.statements[item.breaks];
+      if (id === 'initial') continue;
+      const account = statementFor(f, item.breaks, id);
+      s = engine.applyTurn(s, f, 'x', r('probe', { topic: item.breaks }));
+      assert.equal(s.statements[item.breaks], id);
+      assert.equal(last(s).reply, account.pressed.calm[0]);
+      s = engine.applyTurn(s, f, 'x', r('present_evidence', { evidence: item.id }));
+      assert.equal(last(s).reply, account.pressed.calm[0]);
+      assert.deepEqual(stateFor(f, '아까 인정했잖아요.', s.statements).case.suspect_statements_so_far, [{ topic: item.breaks, statement: account.statement_en }]);
+    }
+  }
+});
+
+test('rapport honors readiness before its pressure reduction on both routes', () => {
+  const base = play(engine.newGame(file), ['open_question', { topic: 'night' }], ['present_evidence', { evidence: 'cctv' }], ['probe', { topic: 'safe' }], ['present_evidence', { evidence: 'safe_log' }], ['probe', { topic: 'money' }], ['probe', { topic: 'night' }]);
+  assert.equal(base.meters.pressure, 76);
+  const closed = play(base, ['rapport']);
+  assert.equal(closed.meters.pressure, 73);
+  assert.equal(closed.ending?.route, 'breakdown');
+  for (const pressure of [35, 36, 37]) {
+    const open = { ...base, cracked: ['cctv'], meters: { pressure, trust: 70, guard: 10 } };
+    assert.equal(engine.isOpening(open, file), true);
+    const end = play(open, ['rapport']);
+    assert.equal(end.ending?.route, 'opening');
+    assert.equal(end.meters.pressure, pressure - 3);
+  }
+});
+
+test('end precedence: lawyer first, confession on last turn, coercion invalidates both routes', () => {
+  const ready = { ...engine.newGame(file), cracked: ['cctv', 'safe_log'], turn: file.maxTurns - 1, meters: { pressure: 76, trust: 75, guard: 10 } };
+  assert.equal(play(ready, ['rapport']).ending?.kind, 'confession');
+  assert.equal(play({ ...ready, meters: { ...ready.meters, guard: 95 } }, ['demand']).ending?.kind, 'lawyer');
+  assert.equal(play(ready, ['probe']).ending?.kind, 'timeout');
+  for (const route of ['breakdown', 'opening']) for (const extra of [{ hostilityLevel: 3 }, { falsePromise: 0.6 }]) {
+    const state = route === 'opening' ? { ...ready, cracked: ['cctv'], meters: { pressure: 35, trust: 70, guard: 10 } } : ready;
+    const end = play(state, ['rapport', extra]).ending;
+    assert.equal(end.kind, 'tainted');
+    assert.equal(end.route, route);
+    assert.equal(end.grade, 'F');
+  }
+});
+
+test('every case can reach both clean confession routes from its actual initial state', () => {
+  for (const f of CASES) for (const route of ['breakdown', 'opening']) {
+    let s = engine.newGame(f);
+    const turns = [];
+    if (route === 'opening') turns.push(...Array.from({ length: 3 }, () => r('rapport', { empathy: 1 })));
+    const topics = f.topics.slice(0, f.cracksNeeded - (route === 'opening' ? 1 : 0));
+    for (const topic of topics) {
+      const item = f.evidence.find(e => e.breaks === topic.id && e.contradicts.includes('initial'));
+      turns.push(r('probe', { topic: topic.id }), r('present_evidence', { evidence: item.id }));
+    }
+    turns.push(...Array.from({ length: 3 }, () => r(route === 'opening' ? 'minimize' : 'demand', route === 'opening' ? { empathy: 1 } : {})));
+    for (const reading of turns) {
+      if (s.ending) break;
+      s = engine.applyTurn(s, f, 'scenario', reading);
+    }
+    assert.equal(s.ending?.kind, 'confession', `${f.id}/${route}: ${JSON.stringify(s.meters)}`);
+    assert.equal(s.ending.route, route, `${f.id}/${route}`);
+    assert.ok(s.turn <= f.maxTurns);
+    assert.equal(s.tainted, null);
+  }
+});
+
+test('server validates topic-local statement ids before spending a request', async () => {
+  const { readTurn } = await vite.ssrLoadModule('/projects/interrogation/server.ts');
+  let calls = 0;
+  const mock = { systemOne: async () => { calls++; return answersFor(); } };
+  for (const statements of [null, [], 'initial', { night: 1 }, { unknown: 'initial' }, { night: 'adapt:safe_log' }, { safe: 'invented' }, JSON.parse('{"__proto__":"initial"}')]) {
+    await assert.rejects(readTurn({ caseId: 'convenience', text: '말해요.', statements }, mock), e => e.status === 400);
+  }
+  assert.equal(calls, 0);
+  const result = await readTurn({ caseId: 'convenience', text: '코드는 인정했죠?', statements: { safe: 'crack:safe_log' } }, mock);
+  assert.match(result.request.state.case.suspect_statements_so_far[0].statement, /have a personal safe code/);
 });

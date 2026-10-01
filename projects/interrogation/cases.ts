@@ -74,14 +74,20 @@ export interface Evidence {
   detail_ko: string;
   /** For Jev: Korean utterances that present this item. */
   examples: string[];
-  /** The topic whose statement this item contradicts; null for an irrelevant item. */
+  /** The related topic; contradicts determines which accounts it actually refutes. */
   breaks: string | null;
+  /** Topic-local statement ids actually contradicted by this item. Empty means no contradiction. */
+  contradicts: string[];
   /** Presented after the suspect committed to the statement: caught. */
   crack: string;
   /** Presented before any statement on the topic: the story bends around it. */
   adapt: string;
   /** The bent story in English, for the state Jev sees after adapting. */
   adapted_statement_en?: string;
+  /** Current account after being caught; never reconstruct it from the original lie. */
+  cracked_statement_en?: string;
+  adapted_pressed?: Partial<Record<Tier, string[]>>;
+  cracked_pressed?: Partial<Record<Tier, string[]>>;
   /** Presented again. */
   repeat: string;
   /** Irrelevant item: brushed off. */
@@ -109,7 +115,7 @@ export interface CaseFile {
   /** Multipliers on meter changes: the suspect's temperament. */
   personality: { pressureGain: number; guardGain: number; trustGain: number };
   start: { pressure: number; trust: number; guard: number };
-  /** Contradictions needed before the suspect can break. */
+  /** Distinct contradicted topics needed before the suspect can break. */
   cracksNeeded: number;
   maxTurns: number;
   topics: Topic[];
@@ -301,10 +307,14 @@ const convenience: CaseFile = {
         '1시 40분, 직원 조끼를 입은 사람이 계산대 카메라를 벽 쪽으로 돌렸다. 출입구 카메라와 정문 개폐 센서에는 1시 30분~2시 20분 사이 아무도 들어온 기록이 없다.',
       examples: ['CCTV 봤는데 1시 40분에 카메라를 돌린 사람이 있어요.', '정문 센서에는 그 시간에 문이 열린 기록이 없는데요?', '출입구 카메라에 강도가 안 찍혔어요.'],
       breaks: 'night',
+      contradicts: ["initial", "adapt:door"],
       crack: '…그, 그건… 카메라가 원래 잘 안 됐어요. 자주 돌아가요. 문 센서도 고장이… 아니, 그러니까… 강도가 들어온 건 맞아요. 제가 봤다니까요.',
       adapt: '아, 그 카메라요. 그건 제가 청소하다 건드렸어요, 1시 40분쯤에. 그리고 강도는… 정문이 아니라 뒷문으로 들어왔어요. 제가 정신이 없어서 정문이라고 한 거예요.',
       adapted_statement_en: 'The robber came in through the back door, not the front; I bumped the counter camera while cleaning around 1:40.',
       repeat: 'CCTV 얘기는 아까 했잖아요. 카메라가 고장 났다고요.',
+      cracked_statement_en: "The robber entered through the front door; the camera and door sensor must have malfunctioned.",
+      adapted_pressed: { calm: ["청소하다 카메라를 건드렸고, 강도는 뒷문으로 들어왔어요."] },
+      cracked_pressed: { calm: ["정문으로 들어오는 걸 봤어요. 카메라와 센서가 고장 났던 거예요."] },
     },
     {
       id: 'safe_log',
@@ -315,10 +325,14 @@ const convenience: CaseFile = {
       detail_ko: '전자 금고는 열 때마다 사용한 코드를 기록한다. 1시 52분, 박준영 명의로 등록된 개인 코드로 한 번에 열렸다.',
       examples: ['금고 기록에 1시 52분에 당신 코드로 열렸다고 나와요.', '개인 코드가 등록돼 있던데요. 비밀번호 모른다면서요?', '금고가 한 번에 열렸더라고요. 당신 코드로.'],
       breaks: 'safe',
+      contradicts: ["initial"],
       crack: '…제 코드요? 그게… 점장님이 예전에 만들어 주셨는데 저는 쓴 적이… 아니… 그날은 강도가 시켜서… 아, 아까 모른다고 한 건… 헷갈렸어요.',
       adapt: '아… 네, 사실 개인 코드는 있어요. 점장님이 만들어 주셨어요. 강도가 열라고 하니까 제가 열었죠. 어쩔 수 없었어요.',
       adapted_statement_en: 'I do have a personal safe code; the robber forced me to open the safe with it.',
       repeat: '코드 얘기는 아까 다 했어요. 강도가 시켜서 열었다고요.',
+      cracked_statement_en: "I have a personal safe code created by the manager and opened the safe because the robber forced me; my earlier denial was wrong.",
+      adapted_pressed: { calm: ["개인 코드는 있어요. 강도가 시켜서 열었어요."] },
+      cracked_pressed: { calm: ["코드를 모른다고 한 건 잘못 말한 거예요. 강도가 시켜서 열었어요."] },
     },
     {
       id: 'loan',
@@ -329,10 +343,14 @@ const convenience: CaseFile = {
       detail_ko: '박준영의 휴대전화에 온 대부업체 문자. 연체 620만 원, 9월 11일 최종 통보, "근무지로 찾아가겠다"는 내용.',
       examples: ['대부업체에서 620만 원 연체됐다고 문자 왔던데요.', '9월 11일에 최종 통보 받았죠? 직장으로 찾아온다고.', '빚이 있잖아요. 문자 다 봤어요.'],
       breaks: 'money',
+      contradicts: ["initial"],
       crack: '…그거 보셨구나. …네. 찾아온다고 했어요. 가게로. 점장님이 알면 저 잘려요. 근데 그거랑 강도랑은… 상관없어요. 상관없다고요.',
       adapt: '…빚이 좀 있긴 해요. 근데 다들 그 정도는 있잖아요. 그래서 제가 강도랑 짰다는 거예요? 아니에요.',
       adapted_statement_en: 'I do have some debt, like everyone; it has nothing to do with the robbery.',
       repeat: '빚 얘기는 이미 했잖아요. 그만하세요.',
+      cracked_statement_en: "I have overdue debt and the lender threatened to visit the store; I feared losing my job, but deny any link to the robbery.",
+      adapted_pressed: { calm: ["빚은 있지만 강도 사건과는 상관없어요."] },
+      cracked_pressed: { calm: ["독촉 문자는 받았어요. 점장님이 알면 잘릴까 봐 숨긴 거예요."] },
     },
     {
       id: 'door',
@@ -343,10 +361,14 @@ const convenience: CaseFile = {
       detail_ko: '뒷문은 안쪽에서 빗장이 걸린 채 잠겨 있었고 강제 개방 흔적이 없다. 뒷문 경보 장치는 밤새 켜져 있었고 한 번도 울리지 않았다.',
       examples: ['뒷문은 안에서 잠겨 있었어요. 경보도 안 울렸고요.', '뒷문으로 들어왔다면서요? 빗장이 걸려 있었는데.'],
       breaks: 'night',
+      contradicts: ["adapt:cctv"],
       crack: '뒷문이… 잠겨 있었어요? 그럼… 그럼 어디로… 아니, 저는 그냥 본 대로 말한 거예요. 정말이에요.',
       adapt: '뒷문요? 그쪽은 제가 잘 안 가요. 강도는 정문으로 들어왔다니까요.',
       adapted_statement_en: 'The robber came through the front door; I rarely go near the back door.',
       repeat: '뒷문 얘기는 아까 했어요.',
+      cracked_statement_en: "I cannot explain how the robber entered if the back door was locked, but still insist I saw a robber.",
+      adapted_pressed: { calm: ["저는 뒷문에 잘 안 가요. 강도는 정문으로 들어왔어요."] },
+      cracked_pressed: { calm: ["잠긴 뒷문으로 어떻게 들어왔는지는 설명 못 하겠어요. 그래도 강도는 봤어요."] },
     },
     {
       id: 'receipt',
@@ -356,6 +378,7 @@ const convenience: CaseFile = {
       detail_ko: '2시 10분에 출력된 계산대 마감 전표. 매출 합계가 정상이고 이상 거래가 없다.',
       examples: ['마감 전표 보니까 2시 10분에 정상 마감했던데요.', '전표에는 이상한 게 없더라고요.'],
       breaks: null,
+      contradicts: [],
       crack: '',
       adapt: '',
       repeat: '전표 얘기는 아까 했어요.',
@@ -457,10 +480,14 @@ const hitrun: CaseFile = {
       detail_ko: '피해자 뒤차 블랙박스, 23시 21분. 번호판 뒷부분 "52더"인 은색 SUV가 갓길로 쏠리며 자전거를 치고 제동 없이 달아난다.',
       examples: ['블랙박스에 당신 차 번호판 52더가 찍혔어요.', '23시 21분 블랙박스 영상에 은색 SUV가 갓길로 쏠리는 게 나와요.', '영상 보셨죠? 브레이크도 안 밟았더군요.'],
       breaks: 'whereabouts',
+      contradicts: ["initial", "adapt:cell", "crack:cell"],
       crack: '…52더요. 그 번호 차가 한두 대가 아닐 텐데요. …아니, 화질이 그렇게 좋아요? 그 시간에 제가… 저는 집에 있었다고요.',
       adapt: '아, 그 영상이요. 은색 SUV는 흔해요. 그리고 저는 그 시간에… 집 근처 편의점에 잠깐 나갔다 왔어요. 담배 사러요. 국도 쪽은 안 갔습니다.',
       adapted_statement_en: 'I was home by 9:30 but went out briefly near home around 11 to buy cigarettes; I never went near Route 11.',
       repeat: '블랙박스 얘기는 아까 했잖아요. 번호판 일부로 저라고 단정하지 마세요.',
+      cracked_statement_en: "I still claim I was home and dispute that a partial plate identifies my SUV in the footage.",
+      adapted_pressed: { calm: ["담배를 사러 집 근처에만 나갔어요. 국도에는 안 갔어요."] },
+      cracked_pressed: { calm: ["번호판 일부만으로 제 차라고 단정할 수는 없잖아요. 저는 집에 있었어요."] },
     },
     {
       id: 'cell',
@@ -470,10 +497,14 @@ const hitrun: CaseFile = {
       detail_ko: '김도현의 휴대전화가 23시 05분~23시 40분 사고 지점 반경 500m 기지국에 접속했고, 그 뒤 아파트 방향으로 이동해 23시 58분 도착.',
       examples: ['기지국 기록을 보면 11시 5분부터 40분까지 사고 현장 근처에 있었어요.', '휴대전화가 11시 58분에 아파트에 도착했다고 나와요. 9시 반이 아니라.', '전화기가 사고 지점 500미터 안에 있었는데요.'],
       breaks: 'whereabouts',
+      contradicts: ["initial", "adapt:dashcam", "crack:dashcam"],
       crack: '…기지국이요. 그게 그렇게 정확해요? …전화기를… 회사 차에 두고 내렸을 수도 있죠. 아니, 저는… 그 기록이 저라는 증거는 아니잖아요.',
       adapt: '아, 그날 전화기를 회사 동료 차에 두고 내렸어요. 다음 날 찾았고요. 그래서 위치가 그렇게 나온 거예요.',
       adapted_statement_en: 'I left my phone in a colleague’s car that night and got it back the next day, which is why its location does not match mine.',
       repeat: '기지국 얘기는 이미 설명했어요.',
+      cracked_statement_en: "I now suggest my phone may have been left in a company car; I deny that its location proves I was at the crash.",
+      adapted_pressed: { calm: ["전화기를 동료 차에 두고 내렸고 다음 날 찾았어요."] },
+      cracked_pressed: { calm: ["전화기를 회사 차에 두고 내렸을 수 있어요. 기록이 곧 제 위치라는 건 아니잖아요."] },
     },
     {
       id: 'repair',
@@ -483,10 +514,14 @@ const hitrun: CaseFile = {
       detail_ko: '두 동네 떨어진 정비소 영수증, 9월 4일 오전 8시 10분. 앞범퍼·오른쪽 헤드라이트 교체, 현금 결제, 고객명 공란, 차량번호 뒷자리 52더.',
       examples: ['9월 4일 아침에 정비소에서 앞범퍼랑 헤드라이트 갈았죠? 영수증 있어요.', '현금으로 범퍼 교체한 영수증이 있는데요. 이름은 비워 두고.', '정비소 영수증에 52더가 찍혀 있어요.'],
       breaks: 'car',
+      contradicts: ["initial"],
       crack: '…그건… 주차하다 기둥에 긁은 거예요. 오래됐어요. 그날 아침에 간 건… 마침 시간이 나서요. 현금은… 카드 한도가 차서. 뭐가 문제죠.',
       adapt: '아, 범퍼요. 그 전 주에 주차장 기둥에 긁어서 바꿨어요. 사고랑은 상관없어요. 수리는 그것뿐입니다.',
       adapted_statement_en: 'I did replace the bumper on 4 September, but for a scrape against a parking pillar the week before; that is the only repair.',
       repeat: '범퍼 얘기는 아까 했어요. 기둥에 긁었다고요.',
+      cracked_statement_en: "I admit replacing the bumper after an earlier parking-pillar scrape; I went that morning because I had time and paid cash because my card was at its limit.",
+      adapted_pressed: { calm: ["전 주에 주차장 기둥에 긁어서 범퍼를 바꾼 거예요."] },
+      cracked_pressed: { calm: ["수리한 건 맞아요. 기둥에 긁은 걸 그날 고쳤고, 카드 한도 때문에 현금으로 냈어요."] },
     },
     {
       id: 'carwash',
@@ -496,10 +531,14 @@ const hitrun: CaseFile = {
       detail_ko: '사고 지점 3km의 셀프 세차장에서 9월 4일 0시 24분 김도현 카드 결제. 세차장 카메라에 앞부분이 찌그러진 은색 SUV.',
       examples: ['새벽 0시 24분에 세차장에서 카드 긁었죠? 사고 현장에서 3킬로예요.', '세차장 카메라에 앞이 찌그러진 SUV가 찍혔어요.', '그 밤에 굳이 세차를 했더라고요.'],
       breaks: 'car',
+      contradicts: ["initial"],
       crack: '…세차요. 그, 그건… 벌레가 많이 붙어서… 새벽에요? …제가 원래 잠이 없어요. 찌그러진 건… 그림자 아니에요?',
       adapt: '아, 세차는 제가 자주 해요. 새벽에 한산하니까요. 앞부분은 그 전 주에 기둥에 긁은 거고요.',
       adapted_statement_en: 'I often wash the car at night when it is quiet; the front damage was from a parking pillar the week before.',
       repeat: '세차 얘기는 했잖아요.',
+      cracked_statement_en: "I admit washing the car late at night to remove insects, but dispute that the image shows damage, suggesting a shadow.",
+      adapted_pressed: { calm: ["새벽에 세차하곤 해요. 앞부분은 전 주에 기둥에 긁었어요."] },
+      cracked_pressed: { calm: ["벌레 때문에 늦게 세차한 건 맞아요. 찌그러져 보이는 건 그림자일 수 있잖아요."] },
     },
     {
       id: 'coworker',
@@ -509,10 +548,14 @@ const hitrun: CaseFile = {
       detail_ko: '팀원 진술. 김도현은 소주 한 병 넘게 마셨고, 10시 50분에 마지막으로 나갔으며, 대리 부르자는 말을 뿌리치고 직접 운전했다.',
       examples: ['팀원이 소주 한 병 넘게 마셨다고 진술했어요.', '동료 말로는 10시 50분에 마지막으로 나갔다던데요. 9시가 아니라.', '대리 부르자는 걸 뿌리쳤다면서요.'],
       breaks: 'dinner',
+      contradicts: ["initial"],
       crack: '…누가 그래요? 이 대리요? …걔가 그날 저보다 더 마셨어요. 시간이야 그 친구가 착각한 거고… 한 병이라니, 그건… 반 병이었어요. 반 병.',
       adapt: '아, 그날 술을 조금 마시긴 했어요. 소주 몇 잔. 10시 50분에 나온 건 맞는데 대리를 불렀어요. 대리 기사가 집까지 데려다줬고요.',
       adapted_statement_en: 'I did have a few drinks and left at 10:50, but a designated driver took me home.',
       repeat: '동료 진술 얘기는 이미 했어요.',
+      cracked_statement_en: "I now admit drinking half a bottle of soju but dispute the colleague’s estimate and departure time.",
+      adapted_pressed: { calm: ["조금 마셨고 10시 50분에 나왔지만, 대리를 불렀어요."] },
+      cracked_pressed: { calm: ["반 병 정도 마셨어요. 한 병은 아니고, 시간도 그 친구가 착각한 거예요."] },
     },
     {
       id: 'insurance',
@@ -522,6 +565,7 @@ const hitrun: CaseFile = {
       detail_ko: '김도현의 자동차보험은 7년 연속 무사고 할인이 적용돼 있고, 올해 보험 청구는 없다.',
       examples: ['보험은 7년 무사고던데요.', '올해 보험 청구는 안 했더라고요.'],
       breaks: null,
+      contradicts: [],
       crack: '',
       adapt: '',
       repeat: '보험 얘기는 했잖아요.',
@@ -574,9 +618,9 @@ const warehouse: CaseFile = {
       about: 'What the suspect did that night: when she went to bed, when she woke, what she saw and did during the fire, whether she went to the shed.',
       examples: ['그날 밤 일을 처음부터 말씀해 주세요.', '몇 시에 잠드셨어요?', '불이 난 걸 어떻게 아셨죠?'],
       statement:
-        '11시쯤 같이 잠들었어요. 남편은 새벽에 창고에 나가는 버릇이 있어서, 없어진 줄도 몰랐고요. 2시 반쯤 연기 냄새에 깼는데 창고가 벌써… 소리를 지르면서 뛰어나갔는데 문이 안 열렸어요. 119는 이웃이 불렀어요.',
+        '11시쯤 같이 잠들었어요. 남편은 새벽에 창고에 나가는 버릇이 있어서, 없어진 줄도 몰랐고요. 2시 반쯤 연기 냄새에 깼는데 창고가 벌써… 소리를 지르면서 뛰어나갔는데 문이 안 열렸어요. 119는 이웃이 불렀어요. 남편은 그날 수면제를 먹지 않았어요.',
       statement_en:
-        'We went to bed around 11 p.m. My husband often went out to the shed at night, so I did not notice him leave. Around 2:30 I woke to the smell of smoke; the shed was already burning and its door would not open. A neighbour called emergency services.',
+        'We went to bed around 11 p.m. My husband often went out to the shed at night, so I did not notice him leave. Around 2:30 I woke to the smell of smoke; the shed was already burning and its door would not open. A neighbour called emergency services. My husband did not take sleeping pills that night.',
       pressed: {
         calm: ['말씀드린 그대로예요. 잠들었고, 연기 냄새에 깼어요.'],
         nervous: ['…11시요. 아니, 12시 가까이였을 수도 있어요. 그날은 잘 기억이 안 나요.'],
@@ -621,9 +665,9 @@ const warehouse: CaseFile = {
       about: 'The shed where the fire started: who used it, who had keys, what was inside, what could have caused the fire.',
       examples: ['창고에는 뭐가 있었어요?', '창고 열쇠는 누가 갖고 있었죠?', '불이 왜 났다고 생각하세요?'],
       statement:
-        '창고는 남편 공간이었어요. 공구랑 낚시 장비, 오래된 전기난로. 저는 열쇠도 없어요. 남편이 밤에 거기서 술 마시면서 난로 켜 놓고 잠든 적이 몇 번 있어서… 그날도 그랬을 거예요.',
+        '창고는 남편 공간이었어요. 공구랑 낚시 장비, 오래된 전기난로. 저는 열쇠도 없고 복제한 적도 없어요. 남편이 밤에 거기서 술 마시면서 난로 켜 놓고 잠든 적이 몇 번 있어서… 그날도 그랬을 거예요.',
       statement_en:
-        'The shed was my husband’s space: tools, fishing gear, an old electric heater. I do not have a key. He sometimes drank there at night and fell asleep with the heater on; that must be what happened.',
+        'The shed was my husband’s space: tools, fishing gear, an old electric heater. I do not have a key and have never had one copied. He sometimes drank there at night and fell asleep with the heater on; that must be what happened.',
       pressed: {
         calm: ['열쇠는 남편만 갖고 있었어요. 저는 들어갈 일이 없었고요.'],
         nervous: ['난로요. 그 난로가 오래됐어요. 몇 번이나 바꾸라고 했는데.'],
@@ -641,10 +685,14 @@ const warehouse: CaseFile = {
       detail_ko: '화재 3주 전인 8월 29일에 사망보험금을 5억에서 12억으로 올린 특약 서류. 신청서는 정서연의 필적이고, 전 소속 대리점 계정으로 접수됐다.',
       examples: ['8월 29일에 보험금을 12억으로 올리셨네요. 화재 3주 전에.', '증액 신청서 필적이 당신 거예요. 대리점 계정으로 접수됐고요.', '5억에서 12억으로 올린 특약, 설명해 보세요.'],
       breaks: 'insurance',
+      contradicts: ["initial"],
       crack: '…그건… 남편이 부탁한 거예요. 사업이 어려워지면서 불안해했고… 제 계정으로 한 건 그게 빠르니까요. 필적은… 남편 대신 제가 쓴 거고요. 그게 뭐가 이상하죠. …3주 전인 건 우연이에요.',
       adapt: '네, 8월 말에 증액했어요. 남편이 원했어요. 제가 아까 최근에 손댄 게 없다고 한 건… 계약 자체를 말한 거예요. 특약은 다르잖아요.',
       adapted_statement_en: 'The benefit was raised in late August at my husband’s request; I handled the paperwork because it was faster through my old agency account.',
       repeat: '증액 얘기는 이미 설명드렸어요. 남편 뜻이었다고요.',
+      cracked_statement_en: "I admit raising the benefit three weeks before the fire at my husband’s request, writing the application and using my agency login.",
+      adapted_pressed: { calm: ["8월 말에 남편이 원해서 증액했고 제가 처리했어요."] },
+      cracked_pressed: { calm: ["남편 부탁으로 제가 서류를 쓰고 접수한 거예요. 시기는 우연이에요."] },
     },
     {
       id: 'toxicology',
@@ -654,10 +702,14 @@ const warehouse: CaseFile = {
       detail_ko: '정서연이 9월 15일 졸피뎀(수면제)을 처방받았다. 남편의 부검 혈액에서 수면 용량의 약 3배에 해당하는 졸피뎀이 검출됐고, 남편에게는 처방 기록이 없다.',
       examples: ['남편 혈액에서 수면제가 나왔어요. 수면 용량의 세 배요.', '9월 15일에 졸피뎀 처방받으셨죠? 남편은 처방받은 적이 없는데.', '수면제는 누가 먹였을까요.'],
       breaks: 'night',
+      contradicts: ["initial"],
       crack: '…(한참 말이 없다) 수면제는 제가 먹으려고 받은 거예요. 남편이… 잠을 못 자서 몇 알 가져갔을 수 있어요. 세 배요? 그 사람이 술이랑 같이 먹었나 보죠. 저는 자고 있었어요. 저는 몰라요.',
       adapt: '남편이 잠을 못 자서 제 약을 가져다 먹곤 했어요. 그날도 그랬을 거예요. 술이랑 같이 먹으면 위험하다고 그렇게 말했는데.',
-      adapted_statement_en: 'My husband sometimes took my sleeping pills because he could not sleep; he must have taken them with alcohol that night.',
+      adapted_statement_en: 'My husband sometimes took my sleeping pills because he could not sleep; he must have taken them with alcohol that night. I was asleep until the smoke woke me at 2:30.',
       repeat: '수면제 얘기는 이미 했어요.',
+      cracked_statement_en: "I now suggest my husband took my sleeping pills with alcohol; I deny administering them and maintain that I was asleep.",
+      adapted_pressed: { calm: ["남편이 제 수면제를 가져다 먹곤 했어요. 그날도 그랬을 거예요."] },
+      cracked_pressed: { calm: ["약을 안 먹었다고 했지만 제 약을 가져갔을 수 있겠네요. 저는 자고 있었어요."] },
     },
     {
       id: 'neighbor',
@@ -667,10 +719,14 @@ const warehouse: CaseFile = {
       detail_ko: '119에 신고한 이웃의 진술. 화재 훨씬 전인 새벽 1시 10분쯤 창고 문소리가 났고, 손전등을 든 여자가 창고에서 집으로 걸어가는 걸 봤다.',
       examples: ['이웃이 1시 10분에 손전등 든 여자가 창고에서 집으로 가는 걸 봤대요.', '새벽 1시에 창고 문소리를 들었다는 이웃 진술이 있어요.', '2시 반에 깼다면서요. 1시 10분에 창고에는 누가 있었죠?'],
       breaks: 'night',
+      contradicts: ["initial", "adapt:toxicology", "crack:toxicology"],
       crack: '…그 집 아주머니요? 그분 눈이 안 좋으세요. 1시에 제가… 아니, 화장실에 갔다가 마당에 나갔을 수는 있어요. 창고는 아니에요. 창고는… 열쇠가 없다니까요.',
       adapt: '아, 그 시간에 한 번 깼어요. 남편이 없길래 마당에 나가서 창고 쪽을 봤어요. 불이 켜져 있길래 또 술 마시나 보다 하고 들어와서 다시 잤어요.',
       adapted_statement_en: 'I woke once around 1 a.m., saw the shed light on from the yard, assumed he was drinking, and went back to sleep.',
       repeat: '이웃 진술은 아까 얘기했잖아요.',
+      cracked_statement_en: "I now admit I may have gone into the yard around 1 a.m. after using the bathroom, but deny entering the shed or having a key.",
+      adapted_pressed: { calm: ["1시쯤 한 번 깨서 마당에서 창고 불을 보고 다시 잤어요."] },
+      cracked_pressed: { calm: ["1시에 마당에 나갔을 수는 있어요. 창고 안에는 안 들어갔어요."] },
     },
     {
       id: 'accelerant',
@@ -680,10 +736,14 @@ const warehouse: CaseFile = {
       detail_ko: '창고 바닥과 문턱에서 부은 흔적 형태의 등유 성분이 검출됐다. 난로와 배선에 결함이 없었고, 문은 바깥에서 빗장이 걸려 있었다.',
       examples: ['감식 결과 바닥에서 등유가 나왔어요. 누전이 아니라.', '창고 문이 바깥에서 잠겨 있었어요. 안에서는 열 수 없게.', '난로에는 결함이 없었다고 감식이 나왔어요.'],
       breaks: 'shed',
+      contradicts: ["initial"],
       crack: '…등유요. 창고에 등유통이 있었어요. 낚시 갈 때 쓰는… 그게 쏟아졌겠죠. 문은… 남편이 바람에 안 열리게… (목소리가 잦아든다) …밖에서요?',
       adapt: '창고에 등유통이 있었어요. 낚시 가서 쓰는 거요. 그게 쏟아진 데 난로 불이 붙었나 보죠. 문 빗장은 바람 때문에 남편이 걸어 두곤 했어요.',
       adapted_statement_en: 'There was a kerosene can in the shed for fishing trips; it must have spilled near the heater. My husband often bolted the door against the wind.',
       repeat: '감식 얘기는 이미 했어요.',
+      cracked_statement_en: "I suggest spilled fishing kerosene caused the fire, but cannot explain why the shed was bolted from outside.",
+      adapted_pressed: { calm: ["등유통이 쏟아졌을 거예요. 남편이 바람 때문에 빗장을 걸곤 했어요."] },
+      cracked_pressed: { calm: ["등유통은 있었어요. 하지만 밖에서 걸린 빗장은 설명 못 하겠어요."] },
     },
     {
       id: 'messages',
@@ -693,10 +753,14 @@ const warehouse: CaseFile = {
       detail_ko: '8월에 남편이 동생에게 보낸 문자: 도박 빚 3억, "그 사람이 떠나겠다고 한다". 정서연이 8월 22일 이혼 전문 변호사와 상담한 기록.',
       examples: ['남편이 동생한테 도박 빚 3억이라고 문자했어요. 당신이 떠나겠다고 했다고요.', '8월 22일에 이혼 변호사 상담하셨죠?', '사이가 좋았다면서요. 이혼 상담 기록이 있는데.'],
       breaks: 'marriage',
+      contradicts: ["initial"],
       crack: '…(눈을 감는다) 이혼 상담은… 했어요. 빚이 3억이 아니라 4억이었어요. 집도 넘어가게 생겼고요. 근데 떠나지 않았어요. 떠나지 않았다고요. 끝까지 옆에 있었어요.',
       adapt: '…솔직히 사이가 좋지만은 않았어요. 남편 빚 때문에 많이 싸웠고, 상담도 받아 봤어요. 근데 그런 부부가 한둘인가요.',
       adapted_statement_en: 'The marriage was strained by my husband’s debts; we fought and I once consulted a lawyer, like many couples.',
       repeat: '이혼 상담 얘기는 이미 했어요.',
+      cracked_statement_en: "I admit consulting a divorce lawyer and say the debts were 400 million won, but insist I never left my husband.",
+      adapted_pressed: { calm: ["빚 때문에 싸웠고 이혼 상담도 받았어요."] },
+      cracked_pressed: { calm: ["이혼 상담은 했어요. 빚은 4억이었지만 저는 떠나지 않았어요."] },
     },
     {
       id: 'key',
@@ -706,10 +770,14 @@ const warehouse: CaseFile = {
       detail_ko: '열쇠 가게 장부. 9월 10일 창고 자물쇠 열쇠를 복제했고, 정서연 카드로 결제됐다.',
       examples: ['9월 10일에 창고 열쇠를 복제하셨네요. 카드 결제 기록이 있어요.', '열쇠가 없다면서요. 열쇠 가게 장부에는 당신 카드가 찍혀 있는데.', '창고 자물쇠 열쇠 복제, 설명해 보세요.'],
       breaks: 'shed',
+      contradicts: ["initial"],
       crack: '…열쇠는… 남편이 잃어버려서 제가 대신 맞춰 준 거예요. 제가 갖고 있던 건 아니에요. 아까 없다고 한 건… 제 열쇠가 없다는 뜻이었어요. 그 열쇠는 남편한테 줬어요. …줬다고요.',
       adapt: '열쇠는 남편이 잃어버려서 제가 하나 맞춰 준 거예요. 제가 쓰려고 만든 게 아니에요.',
       adapted_statement_en: 'I had a spare shed key cut for my husband after he lost his; it was not for me.',
       repeat: '열쇠 얘기는 했잖아요.',
+      cracked_statement_en: "I admit having a shed key copied for my husband after he lost his, but claim I gave it to him and kept none myself.",
+      adapted_pressed: { calm: ["남편이 잃어버려서 대신 맞춰 준 열쇠예요."] },
+      cracked_pressed: { calm: ["복제한 적 없다는 건 잘못 말했어요. 남편 대신 맞춰서 줬어요."] },
     },
     {
       id: 'alarm',
@@ -719,6 +787,7 @@ const warehouse: CaseFile = {
       detail_ko: '창고 화재경보기의 배터리가 방전돼 있었다. 제조사 표시로는 2년 전에 수명이 끝났다.',
       examples: ['경보기 배터리가 방전돼 있었어요.', '화재경보기가 2년 전에 수명이 끝났더군요.'],
       breaks: null,
+      contradicts: [],
       crack: '',
       adapt: '',
       repeat: '경보기 얘기는 했잖아요.',
@@ -741,4 +810,19 @@ export const CASES: readonly CaseFile[] = [convenience, hitrun, warehouse];
 
 export function caseById(id: string): CaseFile | undefined {
   return CASES.find((file) => file.id === id);
+}
+
+/** Resolve a topic-local account id for UI and server alike; no inference or game rules here. */
+export function statementFor(file: CaseFile, topicId: string, statementId: string) {
+  const topic = file.topics.find((t) => t.id === topicId);
+  if (!topic) return undefined;
+  if (statementId === 'initial') return { statement: topic.statement, statement_en: topic.statement_en, pressed: topic.pressed };
+  const item = file.evidence.find((e) => e.breaks === topicId &&
+    (statementId === `adapt:${e.id}` || statementId === `crack:${e.id}`));
+  if (!item) return undefined;
+  const adapted = statementId === `adapt:${item.id}`;
+  const statement_en = adapted ? item.adapted_statement_en : item.cracked_statement_en;
+  const pressed = adapted ? item.adapted_pressed : item.cracked_pressed;
+  if (!statement_en || !pressed?.calm?.length) return undefined;
+  return { statement: adapted ? item.adapt : item.crack, statement_en, pressed };
 }
