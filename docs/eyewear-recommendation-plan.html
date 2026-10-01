@@ -1,0 +1,858 @@
+<title>반응하는 아이웨어 에디터</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@500;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 긴 기획서를 결론 → 경험 → 원리 → 연결 → 실행 순으로 읽는 한 줄 칼럼. 넓은 화면에서는 왼쪽에 고정 목차. */
+:root {
+  --bg: #f2f3f5;
+  --surface: #ffffff;
+  --ink: #16181d;
+  --muted: #596073;
+  --line: #d8dbe3;
+  --accent: #3048c0;
+  --accent-soft: #e5e8f8;
+  --familiar: #2f7657;
+  --new: #3048c0;
+  --bold: #b05a12;
+  --none: #7a7f8c;
+  --code-bg: #eceef3;
+  --font-display: "Hahmlet", "IBM Plex Sans KR", "Apple SD Gothic Neo", serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --step--1: 0.8125rem;
+  --step-0: 1rem;
+  --step-1: 1.1875rem;
+  --step-2: 1.5rem;
+  --step-3: 2.125rem;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111318; --surface: #1a1d24; --ink: #e8eaf0; --muted: #9ca2b3; --line: #2d323d;
+    --accent: #93a4ff; --accent-soft: #232a4b; --familiar: #7cc5a2; --new: #93a4ff; --bold: #f0a760;
+    --none: #8d93a2; --code-bg: #20242d; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111318; --surface: #1a1d24; --ink: #e8eaf0; --muted: #9ca2b3; --line: #2d323d;
+  --accent: #93a4ff; --accent-soft: #232a4b; --familiar: #7cc5a2; --new: #93a4ff; --bold: #f0a760;
+  --none: #8d93a2; --code-bg: #20242d; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: var(--step-0); line-height: 1.7;
+  word-break: keep-all; overflow-wrap: break-word;
+  padding-inline: 16px; padding-block: 0 64px;
+}
+.shell { max-width: 72rem; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 40px; }
+@media (min-width: 1100px) { .shell { grid-template-columns: 13rem minmax(0, 1fr); } }
+
+nav.toc { display: none; }
+@media (min-width: 1100px) {
+  nav.toc { display: block; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 32px); align-self: start; padding-top: 48px; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  nav.toc a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; font-size: var(--step--1); }
+  nav.toc a:hover, nav.toc a:focus-visible { color: var(--ink); background: var(--accent-soft); }
+}
+.chips-nav { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 20px; }
+.chips-nav a { font-size: var(--step--1); color: var(--muted); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; background: var(--surface); }
+@media (min-width: 1100px) { .chips-nav { display: none; } }
+
+main { min-width: 0; max-width: 46rem; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; letter-spacing: 0; line-height: 1.3; }
+h1 { font-size: var(--step-3); margin: 0; font-weight: 700; }
+h2 { font-size: var(--step-2); margin: 0 0 12px; font-weight: 700; }
+h3 { font-size: var(--step-1); margin: 28px 0 8px; font-weight: 500; }
+p { margin: 0 0 12px; }
+a { color: var(--accent); }
+a:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+.eyebrow { font-size: var(--step--1); color: var(--muted); letter-spacing: 0.02em; font-weight: 500; margin: 0 0 6px; }
+.muted { color: var(--muted); }
+.small { font-size: var(--step--1); }
+
+header.hero { padding-block: 48px 8px; }
+header.hero .lede { font-size: var(--step-1); line-height: 1.6; margin: 16px 0 0; max-width: 40rem; }
+.meta { margin-top: 16px; font-size: var(--step--1); color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 16px; }
+
+section { padding-block: 44px 0; scroll-margin-top: 24px; }
+section + section { border-top: 1px solid var(--line); margin-top: 44px; }
+
+.takeaways { display: grid; gap: 12px; margin-top: 28px; }
+.takeaway { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: 12px; align-items: start; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; }
+.takeaway .n { font-family: var(--font-mono); color: var(--accent); font-weight: 500; font-size: var(--step-1); line-height: 1.4; }
+.takeaway strong { display: block; margin-bottom: 2px; }
+.takeaway p { margin: 0; color: var(--muted); }
+
+/* 흐름 */
+.flow { display: grid; gap: 10px; margin-top: 20px; }
+.flow-row { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 640px) { .flow-row.two { grid-template-columns: 1fr 1fr; } }
+.node { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; min-width: 0; }
+.node .tag { font-size: var(--step--1); color: var(--muted); }
+.node strong { display: block; }
+.node.engine { border-color: var(--accent); background: var(--accent-soft); }
+.arrow { text-align: center; color: var(--muted); font-family: var(--font-mono); font-size: var(--step--1); line-height: 1; }
+.steps-inline { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.steps-inline span { font-size: var(--step--1); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 1px 10px; }
+
+/* 표 */
+.table-wrap { overflow-x: auto; margin: 12px 0 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9375rem; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th { font-weight: 600; font-size: var(--step--1); color: var(--muted); background: var(--code-bg); white-space: nowrap; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-size: 0.875rem; white-space: nowrap; }
+
+/* 타임라인 */
+.timeline { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 0; }
+.timeline li { display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: 12px; padding-bottom: 16px; position: relative; }
+.timeline li::before { content: ""; position: absolute; left: calc(1rem - 1px); top: 1.9rem; bottom: 0; width: 2px; background: var(--line); }
+.timeline li:last-child::before { display: none; }
+.timeline .dot { width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-mono); font-size: var(--step--1); border: 1px solid var(--line); background: var(--surface); color: var(--muted); }
+.timeline li.current .dot { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+.timeline strong { display: block; }
+.timeline p { margin: 0; color: var(--muted); }
+
+/* 사용 흐름 스토리보드 */
+.story { display: grid; gap: 12px; margin-top: 16px; }
+.frame { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; min-width: 0; }
+.frame .label { font-size: var(--step--1); color: var(--muted); display: flex; gap: 8px; align-items: baseline; }
+.frame .label b { font-family: var(--font-mono); color: var(--accent); font-weight: 500; }
+.frame h3 { margin: 4px 0 8px; }
+.quote { border-left: 3px solid var(--accent); padding: 4px 0 4px 12px; margin: 8px 0; font-size: var(--step-1); line-height: 1.55; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.chip { font-size: var(--step--1); border-radius: 999px; padding: 2px 10px; border: 1px solid var(--line); background: var(--bg); white-space: nowrap; }
+.chip.usual { border-color: var(--familiar); color: var(--familiar); }
+.chip.intent { border-color: var(--bold); color: var(--bold); }
+.chip.limit { border-color: var(--accent); color: var(--accent); }
+.example-badge { font-size: 0.72rem; border: 1px dashed var(--muted); color: var(--muted); border-radius: 4px; padding: 0 6px; margin-left: 6px; vertical-align: 2px; white-space: nowrap; }
+.dirs { display: grid; gap: 10px; grid-template-columns: 1fr; margin-top: 10px; }
+@media (min-width: 640px) { .dirs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.dir { border: 1px solid var(--line); border-radius: 8px; padding: 12px; border-top: 3px solid var(--c); min-width: 0; }
+.dir .name { font-weight: 600; color: var(--c); }
+.dir .face-note { font-size: var(--step--1); color: var(--muted); }
+.dir p { margin: 6px 0 0; font-size: 0.9375rem; }
+.dir.familiar { --c: var(--familiar); } .dir.new { --c: var(--new); } .dir.bold { --c: var(--bold); }
+
+/* 두 축 데모 */
+.demo { display: grid; gap: 20px; grid-template-columns: 1fr; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin-top: 16px; }
+@media (min-width: 720px) { .demo { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); } }
+.plot svg { width: 100%; max-width: 100%; height: auto; display: block; }
+.plot .q-label { font-family: var(--font-body); font-size: 12px; }
+.controls { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.controls label { display: grid; gap: 4px; font-size: 0.9375rem; }
+.controls .row { display: flex; justify-content: space-between; gap: 8px; }
+.controls output { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.result { border-top: 1px solid var(--line); padding-top: 12px; display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 14px; align-items: center; }
+.result .dname { font-weight: 600; font-size: var(--step-1); }
+.result p { margin: 2px 0 0; font-size: 0.9375rem; color: var(--muted); }
+.face svg { width: 76px; height: 76px; }
+.face .head { fill: var(--bg); stroke: var(--ink); stroke-width: 2; }
+.face .feature { fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linecap: round; }
+.face .eye { fill: var(--ink); }
+.face g.tilt { transition: transform 0.3s ease; transform-origin: 50px 50px; }
+@media (prefers-reduced-motion: reduce) { .face g.tilt { transition: none; } }
+
+/* 치수 */
+.dims { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-top: 16px; overflow-x: auto; }
+.dims svg { width: 100%; min-width: 480px; height: auto; display: block; }
+.dims .frame-line { fill: none; stroke: var(--ink); stroke-width: 3; }
+.dims .lens-fill { fill: var(--accent-soft); }
+.dims .dim { stroke: var(--accent); stroke-width: 1.2; fill: none; }
+.dims .dim-text { fill: var(--accent); font-family: var(--font-mono); font-size: 12px; }
+.dims .dim-label { fill: var(--muted); font-family: var(--font-body); font-size: 12px; }
+.bars { display: grid; gap: 8px; margin-top: 12px; }
+.bar-row { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr) 3.5rem; gap: 10px; align-items: center; font-size: 0.9375rem; }
+.bar-track { height: 12px; background: var(--code-bg); border-radius: 3px; position: relative; }
+.bar-fill { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--c); }
+.bar-row.small-lens { --c: var(--familiar); } .bar-row.large-lens { --c: var(--bold); }
+.bar-row .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.875rem; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: var(--step--1); color: var(--muted); margin-top: 8px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; background: var(--c); }
+
+/* 역할 나눔 */
+.split { display: grid; gap: 12px; grid-template-columns: 1fr; margin-top: 12px; }
+@media (min-width: 640px) { .split { grid-template-columns: 1fr 1fr; } }
+.split .col { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; min-width: 0; }
+.split h3 { margin-top: 0; }
+.split ul { margin: 0; padding-left: 1.1rem; }
+.split li { margin-bottom: 4px; }
+
+/* VTO 게이트 */
+.gates { display: grid; gap: 8px; grid-template-columns: 1fr; margin-top: 12px; }
+@media (min-width: 640px) { .gates { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.gate { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 0.9375rem; min-width: 0; }
+.gate b { display: block; font-size: var(--step--1); color: var(--muted); font-weight: 500; }
+.touch { display: grid; gap: 10px; margin-top: 12px; }
+.touch .node { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: 12px; }
+.touch .node .where { font-weight: 600; color: var(--accent); }
+.touch .node p { margin: 0; }
+pre { background: var(--code-bg); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font-family: var(--font-mono); font-size: 0.8125rem; line-height: 1.6; margin: 8px 0 12px; word-break: normal; white-space: pre; }
+pre code { background: none; padding: 0; font-size: inherit; }
+
+details { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-top: 12px; }
+details summary { cursor: pointer; padding: 12px 16px; font-weight: 500; }
+details[open] summary { border-bottom: 1px solid var(--line); }
+details .inner { padding: 12px 16px 4px; min-width: 0; }
+
+.callout { background: var(--accent-soft); border-radius: var(--radius); padding: 14px 16px; margin: 14px 0; }
+.callout p:last-child { margin-bottom: 0; }
+
+.roadmap { display: grid; gap: 10px; margin-top: 14px; }
+.stage { display: grid; grid-template-columns: 2.4rem minmax(0, 1fr); gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+.stage .n { font-family: var(--font-mono); color: var(--accent); font-weight: 500; }
+.stage p { margin: 0; }
+.stage .pre { font-size: var(--step--1); color: var(--muted); margin-top: 4px; }
+.lanes { font-size: var(--step--1); color: var(--muted); margin-top: 8px; }
+
+.questions { display: grid; gap: 12px; margin-top: 12px; }
+.qgroup { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 16px; }
+.qgroup h3 { margin: 0 0 6px; font-size: var(--step-0); font-family: var(--font-body); font-weight: 600; }
+.qgroup ul { margin: 0; padding-left: 1.1rem; }
+.qgroup li { margin-bottom: 4px; }
+
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); font-size: var(--step--1); color: var(--muted); }
+</style>
+
+<div class="shell">
+  <nav class="toc" aria-label="목차">
+    <ol>
+      <li><a href="#summary">결론</a></li>
+      <li><a href="#reframe">재정의: 감정 투과율</a></li>
+      <li><a href="#engine">한 장으로 보기</a></li>
+      <li><a href="#history">기획이 정해진 과정</a></li>
+      <li><a href="#journey">사용자가 겪는 흐름</a></li>
+      <li><a href="#axes">조화 × 개성</a></li>
+      <li><a href="#fit">치수로 말하기</a></li>
+      <li><a href="#roles">Jev와 코드의 역할</a></li>
+      <li><a href="#face">얼굴의 반응</a></li>
+      <li><a href="#vto">VTO와 이어지는 곳</a></li>
+      <li><a href="#data">데이터</a></li>
+      <li><a href="#self">나 모드 (v2)</a></li>
+      <li><a href="#measure">검증 지표</a></li>
+      <li><a href="#roadmap">로드맵</a></li>
+      <li><a href="#open">열린 질문</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero" id="summary">
+      <p class="eyebrow">기획 초안 · 2026-09-30</p>
+      <h1><span>반응하는</span> <span>아이웨어 에디터</span></h1>
+      <p class="lede">선물할 사람을 설명하면 후보를 세 방향으로 좁혀 주고, emotion-face의 얼굴이 선택 과정에 반응하는 경험입니다. VTO가 약한 두 가지, <strong>무엇을 고를지</strong>와 <strong>맞는지</strong>를 맡습니다.</p>
+      <div class="meta">
+        <span>구현 전 기획입니다</span>
+        <span>“가설”로 표시한 수치는 검증 전 초기값입니다</span>
+      </div>
+      <div class="chips-nav" aria-label="바로가기">
+        <a href="#reframe">재정의</a><a href="#engine">한 장으로 보기</a><a href="#journey">사용자 흐름</a><a href="#axes">조화 × 개성</a><a href="#fit">치수</a><a href="#vto">VTO 연결</a><a href="#roadmap">로드맵</a><a href="#open">열린 질문</a>
+      </div>
+
+      <div class="callout" style="margin-top:24px">
+        <p><strong>2026-09-30 재정의.</strong> 자사 VTO가 운영되면서 목적을 다시 세웠습니다. VTO가 “내가 어떻게 보이는가”라면 이것은 <strong>“내가 어떻게 읽히는가”</strong>입니다. 카메라로 얼굴을 재는 나 모드는 VTO와 겹쳐 독립 제품에서 뺐고, <strong>감정 투과율</strong>을 브랜드 콘텐츠 진입점으로 추가해 프로토타입까지 만들었습니다. 아래 결론 네 가지는 재정의 전의 통합안입니다.</p>
+      </div>
+      <div class="takeaways">
+        <div class="takeaway"><span class="n">1</span><div><strong>하나의 추천 엔진에 입구 두 개</strong><p>v1은 사진 없이 설명만으로 쓰는 <b>선물 모드</b>, v2는 카메라로 본인 얼굴을 재는 <b>나 모드</b>입니다. 둘 다 같은 프로필을 만들고 같은 추천 흐름을 탑니다.</p></div></div>
+        <div class="takeaway"><span class="n">2</span><div><strong>점수 대신 세 방향</strong><p>“어울림 92점”이 아니라 익숙한 취향, 조금 새로운 선택, 과감한 선물로 나눠 보여주고, 제품 데이터에 근거한 이유를 붙입니다.</p></div></div>
+        <div class="takeaway"><span class="n">3</span><div><strong>선물 모드를 먼저 출시할 수 있습니다</strong><p>얼굴 정보를 받지 않아 생체정보 리스크가 없고, VTO가 5개 모델뿐이어도 카탈로그 전체를 대상으로 쓸 수 있습니다.</p></div></div>
+        <div class="takeaway"><span class="n">4</span><div><strong>사이트에 들어갈 자리가 이미 있습니다</strong><p>VTO 세션의 “다른 프레임”은 지금 고정 목록이고, 사이트 설계 문서에 “유사 상품 추천이 가능해지면 교체한다”고 적혀 있습니다.</p></div></div>
+      </div>
+    </header>
+
+    <section id="reframe">
+      <p class="eyebrow">2026-09-30 재정의</p>
+      <h2>VTO와 겹치지 않는 목적</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>요소</th><th>VTO와의 관계</th><th>판단</th></tr></thead>
+        <tbody>
+          <tr><td>선물 모드 (카드 메시지 포함)</td><td>겹치지 않음. 착용할 사람이 없는 상황</td><td>유지 · 구매 경로</td></tr>
+          <tr><td>나 모드 (카메라 얼굴 측정)</td><td><strong>겹침.</strong> 카메라, 내 얼굴, 착용 모습</td><td>독립 제품에서 제외</td></tr>
+          <tr><td>VTO 앞단 추천, “다른 프레임” 교체</td><td>VTO의 부속 기능</td><td>VTO 팀과의 협업 과제</td></tr>
+          <tr><td><strong>감정 투과율</strong></td><td>겹치지 않음. 카메라 없이 감정과 렌즈만</td><td>추가 · 브랜드 콘텐츠 진입점</td></tr>
+        </tbody>
+      </table></div>
+      <h3>감정 투과율</h3>
+      <p>오늘의 상황을 한 줄 쓰면 Jev가 쓴 사람의 감정을 읽어 얼굴에 띄웁니다. 선글라스를 씌우면 렌즈가 가린 만큼 남이 읽을 수 있는 표정이 줄고, “얼마나 보여주고 싶은가”를 고르면 그에 맞는 프레임과 렌즈를 추천합니다.</p>
+      <p>놀람은 표정 신호의 85%가 눈썹과 눈에 있고, 기쁨은 79%가 입과 볼에 있습니다. 그래서 렌즈 높이가 눈썹까지 덮는지가 결정적입니다. 제품 치수가 착용감이 아니라 <strong>감정을 얼마나 덮는가</strong>를 설명하는 데이터가 됩니다.</p>
+      <div class="bars" role="img" aria-label="놀람이 읽히는 정도: Vanilla 다크 60%, New Her 다크 30%. 기쁨: Vanilla 다크 84%, New Her 다크 62%">
+        <div class="bar-row small-lens"><span>놀람 · Vanilla</span><span class="bar-track"><span class="bar-fill" style="width:60%"></span></span><span class="v">60%</span></div>
+        <div class="bar-row large-lens"><span>놀람 · New Her</span><span class="bar-track"><span class="bar-fill" style="width:30%"></span></span><span class="v">30%</span></div>
+        <div class="bar-row small-lens"><span>기쁨 · Vanilla</span><span class="bar-track"><span class="bar-fill" style="width:84%"></span></span><span class="v">84%</span></div>
+        <div class="bar-row large-lens"><span>기쁨 · New Her</span><span class="bar-track"><span class="bar-fill" style="width:62%"></span></span><span class="v">62%</span></div>
+      </div>
+      <div class="legend"><span style="--c:var(--familiar)"><i></i>Vanilla 다크 · 렌즈 높이 33.4mm</span><span style="--c:var(--bold)"><i></i>New Her 다크 · 53.7mm</span><span>남에게 읽히는 표정, 맨눈 = 100%</span></div>
+      <p class="small muted" style="margin-top:10px">표정 가중치의 비율로 만든 연출 값이며, 사람이 감정을 알아보는 정도를 잰 값이 아닙니다. 렌즈 투과율과 얼굴 띠 위치는 가설값입니다.</p>
+      <h3>프로토타입</h3>
+      <p>Jev 실험실에 <code>/emotion-lens/</code> 페이지로 구현했습니다. 얼굴과 표정은 emotion-face를 재사용하고, Jev에는 받는 사람이 아니라 <strong>쓴 사람 본인의 감정</strong>을 묻습니다. VTO 런칭 5개 모델과 색상 변형의 실제 치수로 만든 선글라스를 아바타에 씌우며, 렌즈 불투명도를 투과율과 맞춰 화면의 가림과 수치가 같습니다.</p>
+      <p class="small muted">검증: 단위 테스트 9개 통과. 실제 Jev(<code>jev-1.13.0</code>)로 예시 6개가 미리 정한 기대 감정과 모두 일치(작은 개발자 작성 세트). 브라우저에서 놀람이 Vanilla 다크 61%에서 New Her 다크 31%로 바뀌는 것과 390px 폭을 확인했습니다.</p>
+      <h3>재편된 구성</h3>
+      <div class="split">
+        <div class="col"><h3>감정 투과율</h3><p>브랜드 콘텐츠 진입점. “어떻게 읽히는가.” 카메라 없음.</p></div>
+        <div class="col"><h3>선물 에디터</h3><p>구매 경로. “착용할 사람이 없을 때.” 카메라 없음.</p></div>
+      </div>
+    </section>
+
+    <section id="engine">
+      <p class="eyebrow">전체 구조</p>
+      <h2>한 장으로 보기</h2>
+      <p>두 입구가 같은 형식의 프로필을 채웁니다. 선물 모드는 설명에서 추정하니 정확도가 낮고, 나 모드는 측정하니 높을 뿐 칸은 같습니다. 그래서 v1을 사진 없이 만들어도 v2로 갈 때 엔진을 다시 짤 필요가 없습니다.</p>
+      <div class="flow" role="img" aria-label="선물 모드와 나 모드가 프로필을 만들고, 추천 엔진을 거쳐 VTO와 PDP로 이어지는 흐름">
+        <div class="flow-row two">
+          <div class="node"><span class="tag">v1 · 먼저 출시</span><strong>선물 모드</strong><span class="small muted">받는 사람을 글로 설명 → Jev가 구조화</span></div>
+          <div class="node"><span class="tag">v2 · 검증 후</span><strong>나 모드</strong><span class="small muted">3초 얼굴 회전 영상 → 코드가 치수 계산</span></div>
+        </div>
+        <div class="arrow">↓ 같은 형식의 프로필</div>
+        <div class="node engine">
+          <strong>추천 엔진</strong>
+          <div class="steps-inline"><span>착용감 필터</span><span>조화 × 개성 두 축</span><span>질문으로 좁히기</span><span>세 방향 + 순위 + 이유</span><span>대화로 수정</span></div>
+        </div>
+        <div class="arrow">↓</div>
+        <div class="flow-row two">
+          <div class="node"><strong>얼굴 반응 · 두 제품 비교</strong><span class="small muted">파트너 캐릭터가 선택에 반응, 치수 차이를 겹쳐 보여줌</span></div>
+          <div class="node"><strong>VTO → 카드 메시지 → PDP</strong><span class="small muted">VTO는 적용 제품만. 선물 모드는 카드 메시지 단계를 거침</span></div>
+        </div>
+      </div>
+      <details>
+        <summary>전체 흐름도 (분기 포함)</summary>
+        <div class="inner">
+<pre class="mermaid">flowchart TD
+    A1["선물 모드 v1: 설명 텍스트"] -->|Jev가 구조화| P["프로필 (공통 형식)"]
+    A2["나 모드 v2: 카메라 측정"] -->|코드가 계산| P
+    P --> F{"착용감 필터 (코드)"}
+    F -->|실패| ALT["대안: 같은 디자인 다른 사이즈 → 비슷한 형태"]
+    F -->|통과 또는 판단 불가| S["조화 × 개성 두 축"]
+    ALT --> S
+    S --> Q{"후보가 충분히 좁혀졌나?"}
+    Q -->|아니오| QA["다음 질문 선택 → 답변을 Jev가 해석"]
+    QA --> P
+    Q -->|예| R["세 방향 추천 + 방향별 순위 + 이유"]
+    R --> E["얼굴 반응 (파트너)"]
+    E --> M{"사용자 수정?"}
+    M -->|예: 덜 튀게, 렌즈 밝게 등| P
+    M -->|아니오| C["두 제품 비교"]
+    C --> V["VTO로 착용 확인 (적용 제품만)"]
+    V --> G{"선물 모드인가?"}
+    G -->|예| CARD["카드 메시지 → 받는 사람 반응 표정"]
+    G -->|아니오| PDP["PDP 이동"]
+    CARD --> PDP</pre>
+        </div>
+      </details>
+    </section>
+
+    <section id="history">
+      <p class="eyebrow">배경</p>
+      <h2>기획이 정해진 과정</h2>
+      <p>처음 아이디어는 카메라로 얼굴을 재서 추천도를 표정으로 보여주는 것이었습니다. 검토를 거치며 아래 순서로 방향이 바뀌었습니다.</p>
+      <ol class="timeline">
+        <li><span class="dot">1</span><div><strong>초기안: 얼굴 측정 → 추천도를 표정으로</strong><p>생체정보, 카메라로 mm를 재는 문제, “어울림”에 정답이 없다는 점 때문에 첫 버전으로는 어렵다고 판단했습니다.</p></div></li>
+        <li><span class="dot">2</span><div><strong>선물 에디터</strong><p>설명만으로 세 방향을 추천합니다. 실현 가능하지만 얼굴의 역할이 얇고, 선물에서는 치수의 기준점이 없었습니다.</p></div></li>
+        <li><span class="dot">3</span><div><strong>통합안: 두 입구, 한 엔진</strong><p>조화 × 개성 두 축으로 방향을 정의하고, 카드 메시지 단계에서 emotion-face를 원래 용도로 씁니다.</p></div></li>
+        <li><span class="dot">4</span><div><strong>VTO 조사 반영</strong><p>경쟁사가 이미 얼굴 기반 추천을 하고 VTO 소송 리스크가 크다는 점을 반영해 선물 모드 우선을 굳혔습니다.</p></div></li>
+        <li class="current"><span class="dot">5</span><div><strong>자사 사이트 코드 반영 (현재)</strong><p>VTO 노출 조건, URL 규약, 이벤트, 상품 API 필드를 확인해 연결 방식을 구체화하고, 데이터 원천을 CSV에서 상품 API로 바꿨습니다.</p></div></li>
+      </ol>
+      <h3>처음부터 지키는 원칙</h3>
+      <div class="table-wrap"><table>
+        <tbody>
+          <tr><td><strong>표정은 외모가 아니라 선택에 반응</strong></td><td>슬픔·분노·혐오·경멸 표정은 쓰지 않습니다.</td></tr>
+          <tr><td><strong>점수를 보여주지 않음</strong></td><td>방향, 이유, 확인할 점을 보여줍니다.</td></tr>
+          <tr><td><strong>치수는 코드, 말은 Jev</strong></td><td>Jev는 이미지를 보지 않고 자연어를 정해진 형식의 판단으로 바꾸는 일만 합니다.</td></tr>
+          <tr><td><strong>얼굴 정보는 기기 안에서만</strong></td><td>얼굴 기하 정보는 생체정보라 저장·전송하지 않는 것이 기본입니다.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="journey">
+      <p class="eyebrow">선물 모드 v1</p>
+      <h2>사용자가 겪는 흐름</h2>
+      <p>아래 입력과 결과는 흐름을 설명하기 위한 예시입니다. 실제 Jev 응답이나 실제 추천 결과가 아닙니다.</p>
+      <div class="story">
+        <div class="frame">
+          <div class="label"><b>1</b> 상황과 취향 입력</div>
+          <div class="quote">친구 생일 선물이에요. 평소 검정 옷에 작은 안경을 쓰고, 튀는 건 좋아하지만 회사에서도 쓸 수 있었으면 해요.</div>
+          <p class="small muted">에디터는 이 문장에서 “그 사람이 평소 좋아하는 것”과 “내가 선물하고 싶은 것”을 나눠 담습니다.<span class="example-badge">예시</span></p>
+          <div class="chip-row">
+            <span class="chip usual">평소 취향 · 작은 프레임</span>
+            <span class="chip usual">평소 취향 · 검정 계열</span>
+            <span class="chip intent">주는 사람 의도 · 튀는 것 괜찮음</span>
+            <span class="chip limit">조건 · 회사에서도 쓸 수 있게</span>
+          </div>
+        </div>
+        <div class="frame">
+          <div class="label"><b>2</b> 짧은 확인 질문</div>
+          <p>이미 말한 내용은 건너뛰고, 남은 후보를 가장 고르게 나누는 질문만 최대 7개까지 묻습니다. 예를 들어 “눈이 비치는 렌즈와 가리는 렌즈 중 어느 쪽인가요?”처럼요.</p>
+        </div>
+        <div class="frame">
+          <div class="label"><b>3</b> 세 방향 추천<span class="example-badge">예시</span></div>
+          <div class="dirs">
+            <div class="dir familiar"><div class="name">익숙한 취향</div><div class="face-note">얼굴: 편안한 미소, 끄덕임</div><p>평소 쓰는 것처럼 전면 폭이 작은 편이고 검정 아세테이트예요.</p></div>
+            <div class="dir new"><div class="name">조금 새로운 선택</div><div class="face-note">얼굴: 호기심, 가벼운 미소</div><p>크기는 비슷하고, 렌즈가 세로로 깊어 다른 실루엣을 만들어요.</p></div>
+            <div class="dir bold"><div class="name">과감한 선물</div><div class="face-note">얼굴: 놀람, 활기</div><p>렌즈가 큰 편이라 존재감이 있어요. 회사에서는 튈 수 있어요.</p></div>
+          </div>
+          <p class="small muted" style="margin-top:10px">각 추천 아래에는 “선택 근거: 비슷한 크기 / 원하는 렌즈 타입”, “확인할 점: 코받침 구조와 실제 착용감”처럼 데이터 근거를 붙입니다.</p>
+        </div>
+        <div class="frame">
+          <div class="label"><b>4</b> 대화로 수정</div>
+          <p>“이쪽이 그 사람 같아”, “조금 덜 튀게”, “크기는 유지하고 렌즈는 더 밝게”라고 말하거나 칩을 누르면 후보와 표정이 함께 바뀝니다. 가장 중요한 인터랙션입니다.</p>
+          <div class="chip-row"><span class="chip">덜 튀게</span><span class="chip">더 과감하게</span><span class="chip">렌즈 더 밝게</span><span class="chip">크기 유지</span><span class="chip">이쪽이 그 사람 같아</span></div>
+        </div>
+        <div class="frame">
+          <div class="label"><b>5</b> 두 제품 비교 → VTO</div>
+          <p>전면 폭·렌즈 높이·브리지·다리 길이의 차이를 “+3.2mm 넓음”처럼 보여주고 두 실루엣을 겹쳐 그립니다. VTO가 되는 제품이면 바로 착용해 볼 수 있습니다.</p>
+        </div>
+        <div class="frame">
+          <div class="label"><b>6</b> 카드 메시지 → PDP</div>
+          <p>선물 카드 문장을 쓰는 동안 얼굴이 받는 사람의 예상 반응을 실시간으로 보여줍니다. 지금 emotion-face가 하는 일 그대로입니다. 선물에서 가장 감정적인 순간이라 얼굴이 가장 큰 역할을 하는 지점입니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="axes">
+      <p class="eyebrow">추천 원리</p>
+      <h2>조화 × 개성, 두 축으로 방향을 정합니다</h2>
+      <p>“잘 어울린다”와 “개성이 부각된다”는 한 점수의 높낮이가 아니라 서로 다른 방향입니다. 그래서 제품마다 두 값을 계산하고, 어느 사분면에 들어가는지로 추천 방향을 정합니다.</p>
+      <ul>
+        <li><strong>조화</strong>: 선물 모드에서는 받는 사람의 평소 취향과 얼마나 가까운지, 나 모드에서는 얼굴과 얼마나 조화로운지입니다.</li>
+        <li><strong>개성</strong>: 제품 자체의 존재감입니다. 크기, 테 두께, 색, 렌즈, 형태의 희소성으로 계산합니다.</li>
+      </ul>
+
+      <div class="demo" aria-label="조화와 개성 값을 움직여 추천 방향을 확인하는 예시">
+        <div class="plot">
+          <svg viewBox="0 0 320 300" role="img" aria-labelledby="plot-title">
+            <title id="plot-title">조화(가로)와 개성(세로) 사분면</title>
+            <rect x="40" y="10" width="270" height="250" fill="var(--bg)" stroke="var(--line)"/>
+            <line x1="175" y1="10" x2="175" y2="260" stroke="var(--line)" stroke-dasharray="4 4"/>
+            <line x1="40" y1="135" x2="310" y2="135" stroke="var(--line)" stroke-dasharray="4 4"/>
+            <text class="q-label" x="52" y="30" fill="var(--bold)">과감한 선물</text>
+            <text class="q-label" x="298" y="30" text-anchor="end" fill="var(--new)">조금 새로운 선택</text>
+            <text class="q-label" x="298" y="250" text-anchor="end" fill="var(--familiar)">익숙한 취향</text>
+            <text class="q-label" x="52" y="250" fill="var(--none)">추천하지 않음</text>
+            <text class="q-label" x="175" y="284" text-anchor="middle" fill="var(--muted)">조화 →</text>
+            <text class="q-label" x="16" y="135" text-anchor="middle" fill="var(--muted)" transform="rotate(-90 16 135)">개성 →</text>
+            <text class="q-label" x="40" y="274" fill="var(--muted)">0</text>
+            <text class="q-label" x="310" y="274" text-anchor="end" fill="var(--muted)">1</text>
+            <circle id="dot" cx="250" cy="185" r="9" fill="var(--familiar)" stroke="var(--surface)" stroke-width="3"/>
+          </svg>
+        </div>
+        <div class="controls">
+          <label for="h"><span class="row"><span>조화 (평소 취향과 가까움)</span><output id="h-out" for="h">0.78</output></span>
+            <input type="range" id="h" min="0" max="1" step="0.01" value="0.78"></label>
+          <label for="c"><span class="row"><span>개성 (제품의 존재감)</span><output id="c-out" for="c">0.30</output></span>
+            <input type="range" id="c" min="0" max="1" step="0.01" value="0.30"></label>
+          <div class="result" aria-live="polite">
+            <div class="face" aria-hidden="true">
+              <svg viewBox="0 0 100 100">
+                <g class="tilt" id="face-tilt">
+                  <circle class="head" cx="50" cy="50" r="42"/>
+                  <path class="feature" id="brow-l" d="M30 36 L42 36"/>
+                  <path class="feature" id="brow-r" d="M58 36 L70 36"/>
+                  <circle class="eye" cx="36" cy="46" r="3.4"/>
+                  <circle class="eye" cx="64" cy="46" r="3.4"/>
+                  <path class="feature" id="mouth" d="M38 66 Q50 76 62 66"/>
+                </g>
+              </svg>
+            </div>
+            <div>
+              <div class="dname" id="dname">익숙한 취향</div>
+              <p id="dreact">얼굴: 편안한 미소와 끄덕임</p>
+            </div>
+          </div>
+          <p class="small muted" style="margin:0">기준선은 두 축 모두 0.5입니다(가설). 과감한 선물은 주는 사람의 의도가 있고 제품이 그 의도와 가까울 때만 후보에 오릅니다.</p>
+        </div>
+      </div>
+
+      <details>
+        <summary>계산식 보기: 개성, 조화, 방향, 순위</summary>
+        <div class="inner">
+<pre><code># 개성 (두 모드 공통, 가중치는 가설)
+presence(p) = clamp(
+      0.30 × |sizePercentile − 0.5| × 2
+    + 0.25 × rimThickness
+    + 0.20 × colorStrength(colorFamily)   # black 0.4, tortoise 0.5, clear 0.3, metal 0.3, color 1.0
+    + 0.15 × lensStrength(lensType)       # CLEAR 0.1, TINT 0.5, DARK 0.6, MIRROR 1.0
+    + 0.10 × shapeRarity(shape)
+, 0, 1)
+
+# 조화 (선물 모드) = 1 − 평소 취향과의 거리
+harmony_gift(p) = 1 − Σ w_a × mismatch_a(p, usual) / Σ w_a
+
+# 방향
+H ≥ 0.5, C &lt; 0.5 → 익숙한 취향
+H ≥ 0.5, C ≥ 0.5 → 조금 새로운 선택
+H &lt; 0.5, C ≥ 0.5 → 과감한 선물
+그 외           → 추천하지 않음
+
+# 방향별 순위: 상위 3개만 이유와 함께, 점수는 숨김
+1) 사용자가 말한 조건을 몇 개 만족하는가 (내림차순)
+2) 사분면 중심에 얼마나 가까운가 (오름차순)
+   중심: 익숙한 (0.8, 0.25) · 조금 새로운 (0.75, 0.75) · 과감한 (0.25, 0.8)</code></pre>
+        </div>
+      </details>
+
+      <h3>“전혀 안 어울림”은 사이즈 문제로 정의합니다</h3>
+      <p>스타일이 평소와 다른 건 의도된 선택일 수 있지만, 사이즈가 안 맞는 건 누구에게나 실패입니다. 그래서 착용감이 맞지 않으면 먼저 <strong>같은 디자인의 다른 사이즈</strong>를, 없으면 <strong>비슷한 인상에 치수가 맞는 제품</strong>을 제안합니다. 얼굴은 찡그리지 않고 “이 디자인은 좋은데, 이 크기가 더 맞아요”처럼 다음 제안으로 넘어갑니다.</p>
+      <details>
+        <summary>질문을 고르는 방법 보기</summary>
+        <div class="inner">
+          <p>아키네이터처럼, 남은 후보를 가장 고르게 나누는 질문을 다음에 묻습니다.</p>
+<pre><code>gain[q] = H(w) − Σ_a P(a) × H(w | a)    # 답 a마다 후보가 얼마나 갈리는가
+다음 질문 = argmax gain
+
+멈춤: 질문 7개 · 방향별 상위 3개가 바뀌지 않음 · 남은 질문의 이득이 매우 작음</code></pre>
+          <p class="small muted">질문 예시: 평소 테 색상, 튀는 정도, 쓰는 장소(회사·여행·공연), 눈이 비치는 렌즈와 가리는 렌즈, 얼굴 크기 인상, 지금 쓰는 제품.</p>
+        </div>
+      </details>
+    </section>
+
+    <section id="fit">
+      <p class="eyebrow">제품 데이터의 역할</p>
+      <h2>치수로 말하기</h2>
+      <p>제품 데이터에는 치수 다섯 가지가 있습니다. 나 모드에서는 얼굴 치수와 직접 비교하고, 선물 모드에서는 카탈로그 안에서의 위치(“작은 편”, “렌즈가 세로로 깊은 편”)로 바꿔 말합니다.</p>
+      <div class="dims">
+        <svg viewBox="0 0 560 250" role="img" aria-labelledby="dims-title">
+          <title id="dims-title">프레임 치수: 렌즈 폭, 브리지, 렌즈 높이, 전면 폭</title>
+          <rect class="lens-fill" x="92" y="70" width="160" height="104" rx="34"/>
+          <rect class="lens-fill" x="308" y="70" width="160" height="104" rx="34"/>
+          <rect class="frame-line" x="92" y="70" width="160" height="104" rx="34"/>
+          <rect class="frame-line" x="308" y="70" width="160" height="104" rx="34"/>
+          <path class="frame-line" d="M252 96 Q280 80 308 96"/>
+          <path class="frame-line" d="M92 88 L70 84"/>
+          <path class="frame-line" d="M468 88 L490 84"/>
+          <!-- 전면 폭 -->
+          <line class="dim" x1="70" y1="36" x2="490" y2="36"/>
+          <line class="dim" x1="70" y1="30" x2="70" y2="42"/>
+          <line class="dim" x1="490" y1="30" x2="490" y2="42"/>
+          <text class="dim-label" x="280" y="26" text-anchor="middle">전면 폭 frame_front · 얼굴 폭과 비교</text>
+          <!-- 렌즈 폭 -->
+          <line class="dim" x1="92" y1="200" x2="252" y2="200"/>
+          <line class="dim" x1="92" y1="194" x2="92" y2="206"/>
+          <line class="dim" x1="252" y1="194" x2="252" y2="206"/>
+          <text class="dim-label" x="172" y="222" text-anchor="middle">렌즈 폭 lens_width</text>
+          <!-- 브리지 -->
+          <line class="dim" x1="252" y1="120" x2="308" y2="120"/>
+          <line class="dim" x1="252" y1="114" x2="252" y2="126"/>
+          <line class="dim" x1="308" y1="114" x2="308" y2="126"/>
+          <text class="dim-label" x="280" y="142" text-anchor="middle">브리지</text>
+          <text class="dim-label" x="280" y="157" text-anchor="middle">콧대 폭과 비교</text>
+          <!-- 렌즈 높이 -->
+          <line class="dim" x1="500" y1="70" x2="500" y2="174"/>
+          <line class="dim" x1="494" y1="70" x2="506" y2="70"/>
+          <line class="dim" x1="494" y1="174" x2="506" y2="174"/>
+          <text class="dim-label" x="512" y="118">렌즈</text>
+          <text class="dim-label" x="512" y="134">높이</text>
+          <text class="dim-label" x="388" y="222" text-anchor="middle">렌즈 폭 + 브리지 = 프레임 PD · 동공 간 거리와 비교</text>
+        </svg>
+      </div>
+
+      <h3>VTO 런칭 5개 모델의 치수</h3>
+      <p>사이트에서 VTO가 되는 제품은 모델 5개, 색상 단위로는 SKU 9개입니다. 전면 폭은 145.4~149.1mm로 모두 선글라스 중앙값(146.8mm) 근처라서, 이 5개 안에서는 얼굴 폭에 따른 착용감 차이가 거의 없습니다. 대신 렌즈 크기가 두 무리로 뚜렷하게 나뉩니다. 개성 축에서 위치가 갈려 세 방향 추천을 시험하기에 적당합니다.</p>
+      <div class="bars" role="img" aria-label="렌즈 높이 막대: Vanilla 33.4, Rococo 34.6, Boni 37.2, Gent 48.3, New Her 53.7 mm">
+        <div class="bar-row small-lens"><span>Vanilla 01</span><span class="bar-track"><span class="bar-fill" style="width:55.7%"></span></span><span class="v">33.4</span></div>
+        <div class="bar-row small-lens"><span>Rococo 01</span><span class="bar-track"><span class="bar-fill" style="width:57.7%"></span></span><span class="v">34.6</span></div>
+        <div class="bar-row small-lens"><span>Boni 01</span><span class="bar-track"><span class="bar-fill" style="width:62%"></span></span><span class="v">37.2</span></div>
+        <div class="bar-row large-lens"><span>Gent 01</span><span class="bar-track"><span class="bar-fill" style="width:80.5%"></span></span><span class="v">48.3</span></div>
+        <div class="bar-row large-lens"><span>New Her 01</span><span class="bar-track"><span class="bar-fill" style="width:89.5%"></span></span><span class="v">53.7</span></div>
+      </div>
+      <div class="legend"><span style="--c:var(--familiar)"><i></i>작은 렌즈 무리</span><span style="--c:var(--bold)"><i></i>큰 렌즈 무리</span><span>렌즈 높이, mm · 막대 끝 = 60mm</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>모델</th><th class="num">렌즈 폭</th><th class="num">브리지</th><th class="num">전면 폭</th><th class="num">다리</th><th class="num">렌즈 높이</th></tr></thead>
+        <tbody>
+          <tr><td>Rococo 01</td><td class="num">54.1</td><td class="num">21</td><td class="num">147.2</td><td class="num">146.8</td><td class="num">34.6</td></tr>
+          <tr><td>Gent 01</td><td class="num">64.2</td><td class="num">17</td><td class="num">149.1</td><td class="num">146.9</td><td class="num">48.3</td></tr>
+          <tr><td>New Her 01</td><td class="num">63.9</td><td class="num">15</td><td class="num">148.9</td><td class="num">147.0</td><td class="num">53.7</td></tr>
+          <tr><td>Vanilla 01</td><td class="num">54.8</td><td class="num">20</td><td class="num">145.4</td><td class="num">149.1</td><td class="num">33.4</td></tr>
+          <tr><td>Boni 01</td><td class="num">55.2</td><td class="num">21</td><td class="num">147.4</td><td class="num">147.9</td><td class="num">37.2</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted">단위 mm. Boni를 뺀 4개 모델은 Recycled 버전도 런칭 대상입니다. 5개 모두 DARK 렌즈입니다.</p>
+
+      <details>
+        <summary>착용감 판정 방법과 기준값(가설) 보기</summary>
+        <div class="inner">
+          <p>치수마다 좁음 · 적정 · 넓음 · 판단 불가를 냅니다. 값이 0이거나 측정되지 않은 칸은 판단 불가로 두고 실패로 치지 않습니다. 쉴드형(브리지 0, 렌즈 폭 100mm 초과)은 전면 폭만 봅니다.</p>
+          <div class="table-wrap"><table>
+            <thead><tr><th>기준</th><th>비교</th><th>초기값 (가설)</th></tr></thead>
+            <tbody>
+              <tr><td>전면 폭</td><td>전면 폭 − 얼굴 폭</td><td class="num">−4 ~ +10mm</td></tr>
+              <tr><td>프레임 PD</td><td>(렌즈 폭 + 브리지) − 동공 간 거리</td><td class="num">0 ~ +16mm</td></tr>
+              <tr><td>브리지</td><td>브리지 − 콧대 폭</td><td class="num">−2 ~ +4mm</td></tr>
+              <tr><td>렌즈 높이</td><td>렌즈 높이 ÷ 눈썹~광대 높이</td><td class="num">0.8 ~ 1.3</td></tr>
+            </tbody>
+          </table></div>
+          <p class="small muted">VTO 사용자 불만이 가장 많은 항목이 브리지 핏과 다리 길이라서 브리지 기준을 가장 먼저 보정합니다. 다리 길이는 귀 위치가 필요해 측면 검출이 검증된 뒤 추가합니다. 선물 모드는 받는 사람이 지금 쓰는 모델을 알면 그 치수를 기준으로 쓰고, 모르면 착용감 필터를 건너뜁니다.</p>
+        </div>
+      </details>
+    </section>
+
+    <section id="roles">
+      <p class="eyebrow">역할 나눔</p>
+      <h2>Jev와 코드의 역할</h2>
+      <p>Jev는 글을 생성하지 않고, 정해진 선택지 중 하나와 확률을 돌려줍니다. 흐름·순위·이유 문장은 모두 코드가 맡습니다.</p>
+      <div class="split">
+        <div class="col">
+          <h3>Jev가 판단하는 것</h3>
+          <ul>
+            <li>이미 말한 내용인지 (질문 건너뛰기)</li>
+            <li>그 속성이 받는 사람 취향인지, 주는 사람 의도인지</li>
+            <li>설명을 형태·색·크기 같은 속성 값으로 바꾸기</li>
+            <li>“덜 튀게” 같은 수정 요청의 종류</li>
+            <li>(나 모드) 얼굴과 프레임이 조화인지 대비인지</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h3>코드가 하는 것</h3>
+          <ul>
+            <li>착용감 판정과 치수 비교</li>
+            <li>개성·조화 계산과 방향 분류</li>
+            <li>다음 질문 선택, 방향별 순위</li>
+            <li>제품 데이터로 추천 이유 문장 채우기</li>
+            <li>수정 요청을 조건으로 바꿔 다시 계산</li>
+          </ul>
+        </div>
+      </div>
+      <details>
+        <summary>Jev 질문 정의 보기</summary>
+        <div class="inner">
+          <div class="table-wrap"><table>
+            <thead><tr><th>질문</th><th>타입</th><th>선택지</th></tr></thead>
+            <tbody>
+              <tr><td><code>slot_&lt;name&gt;</code></td><td><code>noul</code></td><td>예일 확률</td></tr>
+              <tr><td><code>attr_owner_&lt;attr&gt;</code></td><td><code>choice</code></td><td><code>recipient_preference</code> · <code>giver_intent</code> · <code>not_mentioned</code> · <code>unclear</code></td></tr>
+              <tr><td><code>attr_value_&lt;attr&gt;</code></td><td><code>choice</code></td><td>속성별 값 목록 + <code>unclear</code></td></tr>
+              <tr><td><code>revision</code></td><td><code>choice</code></td><td><code>less_bold</code> · <code>more_bold</code> · <code>brighter_lens</code> · <code>darker_lens</code> · <code>smaller</code> · <code>larger</code> · <code>keep_size</code> · <code>more_like_this</code> · <code>unclear</code></td></tr>
+              <tr><td><code>style_relation</code> (나 모드)</td><td><code>choice</code></td><td><code>harmonizes</code> · <code>contrasts</code> · <code>clashes</code> · <code>unclear</code></td></tr>
+            </tbody>
+          </table></div>
+          <p class="small muted">criteria는 영어로 둡니다. 한국어 입력은 정확도가 낮을 수 있어서, 취조실처럼 선물 설명 문장 평가 세트를 먼저 만듭니다. 특히 받는 사람 취향과 주는 사람 의도가 한 문장에 섞인 경우를 충분히 넣습니다.</p>
+        </div>
+      </details>
+    </section>
+
+    <section id="face">
+      <p class="eyebrow">emotion-face 재사용</p>
+      <h2>얼굴은 피팅 파트너로 반응합니다</h2>
+      <p>얼굴은 받는 사람도 사용자 본인도 아닌 브랜드 캐릭터입니다. emotion-face의 표정 혼합 식을 그대로 쓰되, Jev 확률 대신 상황별로 정해 둔 혼합을 넣습니다.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>상황</th><th>표정</th></tr></thead>
+        <tbody>
+          <tr><td>익숙한 취향 추천</td><td>편안한 미소(happy 0.6), 끄덕임</td></tr>
+          <tr><td>조금 새로운 선택 추천</td><td>가벼운 미소와 호기심(happy 0.4, surprised 0.3)</td></tr>
+          <tr><td>과감한 선물 추천</td><td>놀람과 활기(surprised 0.6, happy 0.4)</td></tr>
+          <tr><td>정보 부족</td><td>기본 표정, 고개 갸웃. 차분하게 추가 단서를 요청</td></tr>
+          <tr><td>“이쪽이 그 사람 같아”</td><td>미소(happy 0.5), 끄덕임</td></tr>
+          <tr><td>사이즈가 안 맞아 대안 제시</td><td>기본 표정 유지, 안경을 밀어 올리는 동작</td></tr>
+          <tr><td>카드 메시지 작성 중</td><td>기존 emotion-face 그대로: 받는 사람의 예상 반응</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted">쓰지 않는 표정: 슬픔, 분노, 혐오, 경멸.</p>
+    </section>
+
+    <section id="vto">
+      <p class="eyebrow">자사 사이트 코드 기준</p>
+      <h2>VTO와 이어지는 곳</h2>
+      <p>VTO는 “어떻게 보이는가”에 강하고 “무엇을 고를까”와 “맞는가”에 약합니다. 에디터는 VTO 앞과 안과 뒤에서 그 빈자리를 채웁니다.</p>
+      <div class="touch">
+        <div class="node"><span class="where">앞</span><p>추천으로 3~5개를 고른 뒤 VTO로 넘깁니다. 600개 가까운 형태 중 무엇을 써볼지 모르는 게 VTO의 한계이기 때문입니다.</p></div>
+        <div class="node"><span class="where">안</span><p>VTO 세션의 “다른 프레임” 자리에 방향과 이유가 붙은 추천을 넣습니다. 지금은 백엔드가 정한 고정 목록이고, 설계 문서가 추천으로 교체할 예정이라고 밝혀 둔 자리입니다.</p></div>
+        <div class="node"><span class="where">뒤</span><p>VTO를 써 보고 실망한 순간에 에디터로 돌아와 같은 디자인의 다른 사이즈나 비슷한 인상의 대안으로 다시 잇습니다.</p></div>
+      </div>
+
+      <h3>VTO가 뜨는 네 가지 조건</h3>
+      <p>사이트의 모든 VTO 진입점이 한 함수(<code>canRenderVto</code>)로 판정하고, 값을 모르면 막습니다. 에디터의 “VTO로 보기” 버튼도 같은 조건을 써야 누르면 아무 일도 안 일어나는 링크가 생기지 않습니다.</p>
+      <div class="gates">
+        <div class="gate"><b>사이트 국가</b>KR · JP · US · CA · AU<br><span class="small muted">CN · INT 제외</span></div>
+        <div class="gate"><b>상품 플래그</b>VTO 켜짐 + 효과 파일 있음</div>
+        <div class="gate"><b>런칭 목록</b>5개 모델, 색상 단위 9개 SKU</div>
+        <div class="gate"><b>접속 IP 국가</b>KR · JP · US · CA · AU<br><span class="small muted">규제 기준</span></div>
+      </div>
+
+      <h3>URL 하나로 연결됩니다</h3>
+<pre><code>/{country}/{lang}/item/{sku}/{urlKey}?try=on&amp;returnTo=/에디터/경로
+
+try=on        PDP에 들어가자마자 VTO 세션을 엽니다 (동의 모달부터)
+panel=closed  제품 패널을 펼치지 않은 채 시작합니다
+returnTo      세션을 닫으면 돌아갈 경로. 같은 사이트 안의 경로만 받습니다</code></pre>
+      <div class="callout">
+        <p><strong>에디터는 브랜드 사이트 안에 있어야 합니다.</strong> <code>returnTo</code>가 같은 사이트 경로만 받기 때문에, 지금처럼 Jev 실험실(Vercel)에 두면 VTO에서 에디터로 돌아오는 연결이 되지 않습니다.</p>
+      </div>
+
+      <h3>이미 있는 측정 체계를 그대로 씁니다</h3>
+      <p>사이트에는 VTO 이벤트 7종(시작 클릭, 동의 팝업 노출·클릭, 로드 시작·완료·실패, 세션 내 클릭)이 있고, 모든 이벤트에 진입 경로 <code>vto_type</code>(지금은 <code>TRY ON</code>, <code>OTHER FRAME</code>)이 붙습니다. 여기에 <code>EDITOR</code> 값 하나만 추가하면 에디터를 거친 VTO와 직접 연 VTO를 같은 기준으로 비교할 수 있습니다.</p>
+      <p class="small muted">그 밖에: 동의 모달은 카메라 사용 고지와 개인정보 처리방침 링크로 구성되고 별도 생체정보 동의는 받지 않습니다. 사이트의 Banuba 코드는 화면 렌더링과 사진 저장만 하고 얼굴 추적 데이터는 읽지 않습니다.</p>
+    </section>
+
+    <section id="data">
+      <p class="eyebrow">데이터 원천</p>
+      <h2>CSV 대신 상품 API를 씁니다</h2>
+      <p>받은 CSV는 SKU 1,939개(선글라스 1,397 · 안경 528), 형태 단위 662개, 서로 다른 치수 조합 604개입니다. 치수는 쓸 수 있지만 ID가 깨져 있어 형태·소재·색상을 연결할 수 없습니다.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID 컬럼</th><th class="num">행</th><th class="num">고유값</th><th>상태</th></tr></thead>
+        <tbody>
+          <tr><td><code>id</code></td><td class="num">1,939</td><td class="num">733</td><td>SKU마다 달라야 하는데 겹침</td></tr>
+          <tr><td><code>shape_id</code></td><td class="num">1,925</td><td class="num">1</td><td>전부 같은 값</td></tr>
+          <tr><td><code>material_id</code></td><td class="num">1,925</td><td class="num">2</td><td>형태 ID와 같은 숫자</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted">원인: 엑셀은 숫자를 유효숫자 15자리까지만 보관합니다. 18자리 ID의 뒤 3자리가 모두 000으로 잘렸고, 한 번 저장한 파일은 복구할 수 없습니다.</p>
+      <p>사이트의 상품 상세 API(<code>/service/catalog/product/{sku}</code>)는 형태와 소재를 ID가 아닌 <strong>영문 문자열</strong>로 줍니다. 치수 5종, 무게, 제품 설명, 같은 디자인의 사이즈 목록, VTO 가능 여부도 함께 옵니다. 직접 태깅할 것은 테 두께 하나뿐입니다.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>필요한 값</th><th>API 필드</th></tr></thead>
+        <tbody>
+          <tr><td>형태 · 소재</td><td><code>shape</code>, <code>material</code>, <code>additionalData.frameShape</code></td></tr>
+          <tr><td>색 · 렌즈</td><td><code>additionalData.frameColor</code>, <code>additionalData.lensType</code> (CLEAR · TINT · MIRROR · DARK · LENSLESS)</td></tr>
+          <tr><td>치수 · 무게</td><td><code>lensWidth</code>, <code>bridge</code>, <code>frameFront</code>, <code>templeLength</code>, <code>lensHeight</code>, <code>weight</code></td></tr>
+          <tr><td>제품 설명</td><td><code>description</code> (Jev에 넣을 텍스트)</td></tr>
+          <tr><td>같은 디자인 다른 사이즈</td><td><code>sizes[]</code>, <code>modelCode</code></td></tr>
+          <tr><td>VTO 가능 여부</td><td><code>vtoActive</code>, <code>vtoEffectFilePath</code></td></tr>
+          <tr><td>테 두께</td><td>없음 · 직접 태깅</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="self">
+      <p class="eyebrow">v2 · 조건부</p>
+      <h2>나 모드는 검증을 통과해야 만듭니다</h2>
+      <p>경쟁사(Lenskart, KiXR, Warby Parker, Tom Ford 등)가 이미 얼굴 기반 추천과 PD 측정을 제공해서, 나 모드만으로는 차별점이 되지 않습니다. 선물 모드 이후에, 아래 두 관문을 통과하면 만듭니다.</p>
+      <div class="split">
+        <div class="col">
+          <h3>관문 1 · 측정이 흔들리지 않는가</h3>
+          <p>같은 사람을 여러 번 찍었을 때의 오차가 판정 구간 폭의 절반보다 작아야 합니다. 통과하지 못한 치수는 판정에서 뺍니다.</p>
+        </div>
+        <div class="col">
+          <h3>관문 2 · 사람끼리 판단이 일치하는가</h3>
+          <p>매장 스태프 3~5명이 실착 사진 200장(10명 × 20개)을 “잘 어울림 · 개성 부각 · 안 어울림”으로 평가합니다. 일치도(Fleiss’ κ)가 0.4(가설)보다 낮으면 스타일 판단은 보류하고 착용감만 제공합니다.</p>
+        </div>
+      </div>
+      <details>
+        <summary>측정과 3D 얼굴 방식 보기</summary>
+        <div class="inner">
+          <p><strong>측정.</strong> 정면에서 측면으로 고개를 돌리는 3초 영상을 받습니다. 사진 세 장보다 쉽고, Zenni가 5초 영상으로 같은 일을 합니다. MediaPipe 랜드마크를 홍채 지름(약 11.7mm)으로 mm 환산해 얼굴 폭, 동공 간 거리, 콧대 폭, 눈썹~광대 높이를 구하고 프레임별 중앙값을 씁니다.</p>
+<pre><code>mm_per_px = 11.7 / 홍채 지름(px)
+faceWidth = 얼굴 좌우 끝 거리 × mm_per_px
+pd        = 좌우 홍채 중심 거리 × mm_per_px
+각 값     = 프레임별 중앙값, 흩어짐(IQR)은 재현성 판정에 사용</code></pre>
+          <p><strong>귀.</strong> 얼굴 메시에 귀가 없어 별도 검출이 필요합니다. 다리 길이 판정의 가치는 크지만 v2에서도 선택 항목입니다.</p>
+          <p><strong>3D 얼굴.</strong> 사진으로 실사 얼굴을 복원하지 않고, 기본 얼굴을 측정 비율대로 변형합니다. 브라우저 안에서 처리되어 사진이 전송되지 않고, 캐릭터성도 유지됩니다. 실사 표현은 셀피 한 장으로 아바타를 만드는 생성형 VTO가 빠르게 발전하는 영역이라 직접 만들 이유가 약합니다.</p>
+        </div>
+      </details>
+    </section>
+
+    <section id="measure">
+      <p class="eyebrow">성과</p>
+      <h2>검증 지표</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>확인할 것</th><th>지표</th></tr></thead>
+        <tbody>
+          <tr><td>후보를 더 쉽게 좁히는가</td><td>추천까지 걸린 시간, 수정 횟수</td></tr>
+          <tr><td>추천 이유를 이해하는가</td><td>결과를 본 직후 “왜 이 제품인가”를 한 문장으로 말할 수 있는 비율</td></tr>
+          <tr><td>표정이 선택에 도움이 되는가</td><td>얼굴 있음 vs 텍스트 배지만 있음 A/B 비교</td></tr>
+          <tr><td>구매로 이어지는가</td><td>PDP 이동률, 카드 메시지 단계 완료율</td></tr>
+          <tr><td><strong>반품이 줄어드는가</strong></td><td>에디터 경유 구매와 미경유 구매의 반품률, 사이즈·착용감 사유 반품 비율</td></tr>
+        </tbody>
+      </table></div>
+      <p>VTO 조사는 VTO를 전환율보다 반품률 감소 도구로 봐야 한다고 권고합니다. 선물은 받는 사람이 직접 고르지 않아 사이즈 반품이 나기 쉬운 구매라서, 반품률이 가장 설명하기 쉬운 지표입니다.</p>
+    </section>
+
+    <section id="roadmap">
+      <p class="eyebrow">실행 순서</p>
+      <h2>로드맵</h2>
+      <div class="roadmap">
+        <div class="stage"><span class="n">0</span><div><p><strong>데이터</strong>: 선글라스 20~30개 선별(VTO 런칭 5개 모델 포함). 상품 API로 속성을 모으고 테 두께만 태깅</p><div class="pre">선행 조건 없음</div></div></div>
+        <div class="stage"><span class="n">1</span><div><p><strong>Jev 평가 세트</strong>: 선물 설명과 수정 요청 문장으로 정확도 확인</p><div class="pre">0 이후</div></div></div>
+        <div class="stage"><span class="n">2</span><div><p><strong>선물 모드 v1</strong>: 입력 → 질문 → 세 방향 → 수정 → 비교 → 카드 메시지 → PDP</p><div class="pre">0, 1 이후</div></div></div>
+        <div class="stage"><span class="n">3</span><div><p><strong>나 모드 검증</strong>: 측정 재현성, 스태프 평가 일치도, 규칙과 Jev 비교</p><div class="pre">매장 협조 · 2와 병렬</div></div></div>
+        <div class="stage"><span class="n">4</span><div><p><strong>VTO 연결</strong>: <code>?try=on</code> 연결, <code>returnTo</code> 복귀, <code>vto_type</code>에 <code>EDITOR</code> 추가, 이후 “다른 프레임”을 추천으로 교체</p><div class="pre">에디터를 사이트 안에 배치 · 백엔드 협의 · VTO 확대 일정에 맞춤</div></div></div>
+        <div class="stage"><span class="n">5</span><div><p><strong>나 모드 v2</strong>: 카메라 측정 → 착용감 필터 → 얼굴과의 조화 → 비율 아바타</p><div class="pre">3 통과 · 법무 검토</div></div></div>
+      </div>
+      <p class="lanes">3의 결과가 나쁘게 나와도 선물 모드 v1은 영향을 받지 않습니다. 선물 모드는 얼굴 정보도 VTO도 필요 없어서, VTO가 제외된 중국·INT에서도 얼굴 정보 부담 없이 검토할 수 있습니다.</p>
+    </section>
+
+    <section id="open">
+      <p class="eyebrow">결정이 필요한 것</p>
+      <h2>열린 질문</h2>
+      <div class="questions">
+        <div class="qgroup"><h3>사이트 · 백엔드</h3><ul>
+          <li>에디터를 브랜드 사이트 안의 경로로 둘 수 있는가?</li>
+          <li>VTO 세션의 “다른 프레임”을 추천으로 바꿀 때, 추천을 백엔드 응답에 넣을지 프론트에서 순서와 이유만 덧붙일지</li>
+          <li>카탈로그 전체의 상품 속성을 일괄로 받을 방법 (상품 API는 SKU 하나씩 조회)</li>
+          <li>상품 API의 <code>transparent</code> 값이 렌즈 투과율인지. 맞다면 “렌즈 더 밝게”를 수치로 처리할 수 있습니다</li>
+        </ul></div>
+        <div class="qgroup"><h3>Banuba</h3><ul>
+          <li>WebAR SDK가 얼굴 메시 좌표와 실제 스케일(mm)을 외부로 주는가? 준다면 나 모드의 측정을 대신할 수 있습니다</li>
+        </ul></div>
+        <div class="qgroup"><h3>개인정보 · 법무</h3><ul>
+          <li>나 모드를 자사 VTO와 같은 개인정보 판단에 넣을 수 있는가? VTO는 화면에 그리기만 하지만, 나 모드는 치수를 계산해 추천에 씁니다</li>
+          <li>나 모드의 국가별 검토: 한국 개인정보보호법, GDPR, 일리노이 BIPA, 텍사스 CUBI, 중국 PIPL</li>
+        </ul></div>
+        <div class="qgroup"><h3>경험</h3><ul>
+          <li>선물로 산 선글라스의 교환 정책을 결과 화면에 어떻게 보여줄지. “안 맞으면 어쩌지”가 선물 구매를 망설이게 하는 가장 큰 이유입니다</li>
+          <li>귀 위치 검출(다리 길이 판정)을 v2에 넣을지</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <footer>
+      <p>근거 자료: 제품 CSV(2026-09-30 재추출본), 노션 「2026-01-30 VTO(Virtual Try-On)」 조사(시장·경쟁사 수치는 재검증하지 않음), 자사 사이트 저장소 <code>gentle-renewal</code>의 VTO 코드(<code>807ce8856</code>). 원문 기획서: <code>docs/eyewear-recommendation-plan.md</code>.</p>
+    </footer>
+  </main>
+</div>
+
+<script>
+(function () {
+  var h = document.getElementById('h');
+  var c = document.getElementById('c');
+  var hOut = document.getElementById('h-out');
+  var cOut = document.getElementById('c-out');
+  var dot = document.getElementById('dot');
+  var dname = document.getElementById('dname');
+  var dreact = document.getElementById('dreact');
+  var mouth = document.getElementById('mouth');
+  var browL = document.getElementById('brow-l');
+  var browR = document.getElementById('brow-r');
+  var tilt = document.getElementById('face-tilt');
+
+  var DIRS = {
+    familiar: { name: '익숙한 취향', react: '얼굴: 편안한 미소와 끄덕임', color: 'var(--familiar)',
+      mouth: 'M38 66 Q50 76 62 66', bl: 'M30 36 L42 36', br: 'M58 36 L70 36', tilt: 0 },
+    fresh: { name: '조금 새로운 선택', react: '얼굴: 호기심과 가벼운 미소', color: 'var(--new)',
+      mouth: 'M40 67 Q50 72 60 66', bl: 'M30 36 L42 36', br: 'M58 32 L70 29', tilt: 0 },
+    bold: { name: '과감한 선물', react: '얼굴: 놀람과 활기', color: 'var(--bold)',
+      mouth: 'M44 66 Q50 58 56 66 Q50 76 44 66', bl: 'M30 30 L42 27', br: 'M58 27 L70 30', tilt: 0 },
+    none: { name: '추천하지 않음', react: '얼굴: 기본 표정으로 고개를 갸웃하고 다른 단서를 물어봅니다', color: 'var(--none)',
+      mouth: 'M41 68 L59 68', bl: 'M30 36 L42 36', br: 'M58 36 L70 36', tilt: -9 }
+  };
+
+  function direction(H, C) {
+    if (H >= 0.5 && C < 0.5) return 'familiar';
+    if (H >= 0.5 && C >= 0.5) return 'fresh';
+    if (H < 0.5 && C >= 0.5) return 'bold';
+    return 'none';
+  }
+
+  function update() {
+    var H = parseFloat(h.value);
+    var C = parseFloat(c.value);
+    hOut.value = H.toFixed(2);
+    cOut.value = C.toFixed(2);
+    dot.setAttribute('cx', String(40 + H * 270));
+    dot.setAttribute('cy', String(260 - C * 250));
+    var d = DIRS[direction(H, C)];
+    dot.setAttribute('fill', d.color);
+    dname.textContent = d.name;
+    dname.style.color = d.color;
+    dreact.textContent = d.react;
+    mouth.setAttribute('d', d.mouth);
+    browL.setAttribute('d', d.bl);
+    browR.setAttribute('d', d.br);
+    tilt.style.transform = 'rotate(' + d.tilt + 'deg)';
+  }
+
+  h.addEventListener('input', update);
+  c.addEventListener('input', update);
+  update();
+})();
+</script>

@@ -1,0 +1,40 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": { "title": "Jev 감정 → 얼굴 변환 알고리즘", "quality_profile": "showcase" },
+  "lanes": [
+    { "id": "judgment", "label": "입력과 판단" },
+    { "id": "application", "label": "응답 처리와 화면" }
+  ],
+  "mainPath": ["message", "queue", "api", "jev", "revision", "mix", "face"],
+  "nodes": [
+    { "id": "message", "lane": "judgment", "col": 0, "type": "frontend", "label": "메시지 변경", "sublabel": "trim · revision 증가", "width": 116 },
+    { "id": "queue", "lane": "judgment", "col": 1, "type": "messagebus", "label": "최신 입력 대기열", "sublabel": "90ms · 요청 1개", "width": 132 },
+    { "id": "api", "lane": "judgment", "col": 2, "type": "security", "label": "서버 입력 검증", "sublabel": "2,000자 · 요청 한도", "width": 116 },
+    { "id": "jev", "lane": "judgment", "col": 3, "type": "cloud", "label": "Jev 독립 판단", "sublabel": "감정 + 전체 강도", "width": 132 },
+    { "id": "revision", "lane": "judgment", "col": 4, "type": "security", "label": "응답 적용 조건", "sublabel": "revision · unclear", "width": 132 },
+    { "id": "idle", "lane": "application", "col": 0, "type": "frontend", "label": "빈 입력 초기화", "sublabel": "기본 자세 · JSON 삭제", "width": 116 },
+    { "id": "error", "lane": "application", "col": 2, "type": "security", "label": "오류 표시", "sublabel": "현재 입력의 오류만", "width": 116 },
+    { "id": "discard", "lane": "application", "col": 3, "type": "backend", "label": "이전 응답 폐기", "sublabel": "최신 입력 재요청", "width": 132 },
+    { "id": "unclear", "lane": "application", "col": 4, "type": "backend", "label": "판단 보류", "sublabel": "기본 자세 · 강도 보류", "width": 132 },
+    { "id": "mix", "lane": "judgment", "col": 5, "type": "backend", "label": "표정 가중치 계산", "sublabel": "확률 제곱 × 전체 강도", "width": 132 },
+    { "id": "face", "lane": "application", "col": 5, "type": "frontend", "label": "3D 얼굴과 패널", "sublabel": "52개 가중치 · 보간", "width": 132 }
+  ],
+  "edges": [
+    { "from": "message", "to": "queue", "label": "문장 있음", "role": "main" },
+    { "from": "message", "to": "idle", "label": "빈 문장", "role": "branch" },
+    { "from": "queue", "to": "api", "label": "POST", "role": "main" },
+    { "from": "api", "to": "jev", "label": "state + 질문 2개", "role": "main" },
+    { "from": "api", "to": "error", "label": "요청 실패", "role": "error" },
+    { "from": "jev", "to": "revision", "label": "확률 · 점수", "role": "main" },
+    { "from": "revision", "to": "mix", "label": "최신 · 감정 선택", "role": "main" },
+    { "from": "revision", "to": "discard", "label": "이전 revision", "role": "branch", "route": "drop" },
+    { "from": "revision", "to": "unclear", "label": "최신 · unclear", "role": "branch" },
+    { "from": "mix", "to": "face", "label": "가중 합산", "role": "main" },
+    { "from": "unclear", "to": "face", "label": "원본 응답 보존", "role": "branch" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "두 질문은 서로의 답을 보지 않음", "items": ["같은 문장으로 수신자의 감정과 전반적인 반응 강도를 각각 판단", "이전 대화·실제 관계 정보 없음 · confidence는 표시만 함"] },
+    { "dot": "amber", "title": "표정은 확률을 연출로 바꾼 결과", "items": ["mixᵢ = pᵢ² / Σpⱼ² · strength = clamp(score / 4, 0, 1)^0.6", "unclear는 강도 적용 보류 · 입력 변경 중에도 얼굴은 기본 자세"] }
+  ]
+}
