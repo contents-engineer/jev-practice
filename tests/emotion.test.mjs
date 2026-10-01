@@ -12,16 +12,29 @@ before(async () => {
 after(async () => { await vite?.close(); });
 
 const tick = () => new Promise(resolve => setTimeout(resolve, 5));
-function harness() {
+function harness(delay = 0) {
   const requests = [], shown = [], errors = [];
   let idle = 0;
   const loop = new ReadingLoop({
     read: text => new Promise((resolve, reject) => requests.push({ text, resolve, reject })),
     show: (value, text) => shown.push({ value, text }),
     pending: () => {}, idle: () => { idle++; }, error: error => errors.push(error),
-  }, 0);
+  }, delay);
   return { loop, requests, shown, errors, idle: () => idle };
 }
+
+test('debounce resets timer on keystrokes and fires once after delay', async () => {
+  const h = harness(30);
+  h.loop.update('가');
+  await new Promise(r => setTimeout(r, 15));
+  h.loop.update('나');
+  await new Promise(r => setTimeout(r, 15));
+  h.loop.update('다');
+  assert.equal(h.requests.length, 0);
+  await new Promise(r => setTimeout(r, 45));
+  assert.equal(h.requests.length, 1);
+  assert.equal(h.requests[0].text, '다');
+});
 
 test('append-only negation discards stale response and sends only latest queued text', async () => {
   const h = harness();
