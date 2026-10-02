@@ -46,15 +46,6 @@ Vercel은 이 저장소의 `tsc`(TypeScript 7)로 `api/` 진입점과 그 import
 - 얼굴은 `../emotion-face/face`와 `../emotion-face/emotions`를 import해 재사용하고, `director.ts`가 tier·이벤트를 Mood로 바꾼다. 감정 프리셋을 바꾸면 두 페이지에 모두 영향이 있다.
 - 질문·사건·엔진을 바꿨으면 dev 서버를 켜고 `npm run eval:interrogation`(과금)으로 `evals/interrogation-cases.json`을 다시 돌린다. 기대값은 실행 전에 정하고 결과에 맞춰 바꾸지 않는다. 브라우저에서는 사건 1을 진술 → 증거 순서로 플레이해 모순·자백까지 본다. 보고서는 `evals/reports/interrogation-latest.json`(Git 제외).
 
-## 감정 투과율 (emotion-lens)
-
-- Jev에는 **쓴 사람 본인의 감정**을 묻는다(`feeling`, `intensity`). 받는 사람의 감정을 묻는 반응하는 얼굴의 질문을 재사용하지 않는다. 감정 id는 `EmotionId`와 같아야 하며, `server.ts`의 `satisfies Record<EmotionId, …>`와 테스트가 이를 검사한다.
-- 렌즈 가림 계산은 `lens.ts`의 순수 함수에만 둔다. 얼굴 띠(`LAYOUT`)와 투과율(`TONES`)은 가설값이며, 바꾸면 `tests/emotion-lens.test.mjs`와 README의 예시 수치를 함께 고친다. 결과는 표정 가중치 비율로 만든 연출이므로 사람의 감정 인식률로 설명하지 않는다.
-- 제품 데이터(`FRAMES`)는 제품 export에서 옮긴 실제 치수·SKU다. 추측으로 제품이나 렌즈 타입(CLEAR 등)을 추가하지 않는다.
-- `glasses.ts`의 렌즈 불투명도는 `1 − 투과율`, 세로 위치는 `LAYOUT.lensCentre`로 계산과 맞춘다. 화면의 가림과 수치가 어긋나게 바꾸지 않는다.
-- 얼굴과 입력 루프는 `../emotion-face/face`·`emotions`·`reading-loop`를 재사용한다. 표정 프리셋을 바꾸면 이 페이지의 수치도 바뀐다.
-- 질문을 바꿨으면 dev 서버를 켜고 `samples.ts`의 예시를 실제 Jev로 다시 보낸다(과금). 기대값은 실행 전에 정하고 결과에 맞춰 바꾸지 않는다.
-
 ## 검증
 
 - 매번: `npm test`, `npm run typecheck`, `npm run build`.
